@@ -1,4 +1,5 @@
 #include <fstream>
+#include <sstream>
 #include "data_types/filterbank.hpp"
 #include "data_types/header.hpp"
 
@@ -31,14 +32,15 @@ SigprocFilterbank::SigprocFilterbank(std::string filename)
   infile.open(filename.c_str(),std::ifstream::in | std::ifstream::binary);
   if(infile.bad())
     {
-      std::cerr << "File "<< filename << " could not be opened " << std::endl;
+      std::stringstream error_msg;
+      error_msg << "File "<< filename << " could not be opened: ";
       if ( (infile.rdstate() & std::ifstream::failbit ) != 0 )
-	std::cerr << "Logical error on i/o operation" << std::endl;
+	error_msg << "Logical error on i/o operation" << std::endl;
       if ( (infile.rdstate() & std::ifstream::badbit ) != 0 )
-	std::cerr << "Read/writing error on i/o operation" << std::endl;
+	error_msg << "Read/writing error on i/o operation" << std::endl;
       if ( (infile.rdstate() & std::ifstream::eofbit ) != 0 )
-	std::cerr << "End-of-File reached on input operation" << std::endl;
-      exit(-1);
+	error_msg << "End-of-File reached on input operation" << std::endl;
+      throw std::runtime_error(error_msg.str());
     }
   read_header(infile,hdr);
   input_size = (size_t) hdr.nsamples * hdr.nbits * hdr.nchans / 8;
