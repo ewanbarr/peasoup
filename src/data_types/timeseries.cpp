@@ -14,11 +14,42 @@ T TimeSeries::operator[](int idx)
    return data_ptr[idx];	
 }
 
+void TimeSeries::set_nsamps(unsigned int nsamps_)
+{
+  nsamps = nsamps_;
+}
+
+unsigned int TimeSeries::get_nsamps(void)
+{
+  return nsamps;
+}
+
+void TimeSeries::set_tsamp(float tsamp_)
+{
+  tsamp = tsamp_;
+}
+
+float TimeSeries::get_tsamp(void)
+{
+  return tsamp;
+}
+
 template <class T>
 DedisperedTimeSeries::DedispersedTimeSeries(T* data_ptr, unsigned int nsamps, float tsamp, float dm)
 :TimeSeries<T>(data_ptr,nsamps,tsamp),dm(dm)
 {
 }
+
+float DedisperedTimeSeries::get_dm(void)
+{
+  return dm;
+}
+
+void DedisperedTimeSeries::set_dm(float dm_)
+{
+  dm = dm_;
+}
+
 
 template <class T>
 DispersionTrials::DispersionTrials(T* data_ptr, unsigned int nsamps, 

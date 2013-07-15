@@ -1,31 +1,48 @@
 //Should move all data pointers to smart pointers std::tr1::shared_pointer
 using namespace std;
 
-template <class T>
-class TimeSeries {
+//######################
+
+template <class T> class TimeSeries {
 protected:
   unsigned int nsamps;
   float tsamp;
   T data_ptr;
   
 public:  
-  template <class T>
-  TimeSeries(T* data_ptr,unsigned int nsamps,float tsamp);
+  template <class T> TimeSeries(T* data_ptr,unsigned int nsamps,float tsamp);
+  operator[](int idx);
+  unsigned int get_nsamps(void);
+  void set_nsamps(unsigned int nsamps);
+  float get_tsamp(void);
+  void set_tsamp(float tsamp);
 };
+
+//#########################
 
 class DedispersedTimeSeries: public TimeSeries {
 private:
   float dm;
-  
+
 public:
   template<class T>
   DedispersedTimeSeries(T* data_ptr, unsigned int nsamps, float tsamp, float dm);
-  T* ptr(void);
+  float get_dm(void);
+  void set_dm(float dm);
 };
+
+//###########################
 
 class FilterbankChannel: public TimeSeries {
 
 };
+
+//#############################
+
+
+
+
+
 
 template <class T>
 class TimeSeriesContainer {
@@ -34,7 +51,11 @@ protected:
   unsigned int count;
   float tsamp;
   T* data_ptr;
+  
 };
+
+
+
 
 //created through Dedisperser
 template <class T>
