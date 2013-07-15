@@ -9,7 +9,7 @@ protected:
   //Filterbank metadata
   float tsamp;
   float foff;
-  float cfreq;
+  float fch1;
   unsigned int nchans;
   unsigned int nsamps;
   unsigned char nbits;
@@ -25,8 +25,8 @@ public:
   virtual float get_foff(void);
   virtual void set_foff(float foff);
 
-  virtual float get_cfreq(void);
-  virtual void set_cfreq(float cfreq);
+  virtual float get_fch1(void);
+  virtual void set_fch1(float cfreq);
 
   virtual float get_nchans(void);
   virtual void set_nchans(unsigned int nchans);
@@ -49,6 +49,6 @@ public:
   SigprocFilterbank(std::string filename);
   SigprocFilterbank(unsigned char* data_ptr, unsigned int nsamps,
                     unsigned int nchans, unsigned char nbits,
-                    float cfreq, float foff, float tsamp);    
+                    float fch1, float foff, float tsamp);    
   ~SigprocFilterbank();
 };

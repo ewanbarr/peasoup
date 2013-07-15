@@ -1,4 +1,5 @@
 #include <fstream>
+#include <sstream>
 #include "data_types/filterbank.hpp"
 #include "data_types/header.hpp"
 
@@ -8,8 +9,8 @@ void  Filterbank::set_tsamp(float tsamp){this->tsamp = tsamp;}
 float Filterbank::get_foff(void){return foff;}
 void  Filterbank::set_foff(float foff){this->foff = foff;}
 
-float Filterbank::get_cfreq(void){return cfreq;}
-void  Filterbank::set_cfreq(float cfreq){this->cfreq = cfreq;}
+float Filterbank::get_fch1(void){return fch1;}
+void  Filterbank::set_fch1(float fch1){this->fch1 = fch1;}
 
 float Filterbank::get_nchans(void){return nchans;}
 void  Filterbank::set_nchans(unsigned int nchans){this->nchans = nchans;}
@@ -31,14 +32,15 @@ SigprocFilterbank::SigprocFilterbank(std::string filename)
   infile.open(filename.c_str(),std::ifstream::in | std::ifstream::binary);
   if(infile.bad())
     {
-      std::cerr << "File "<< filename << " could not be opened " << std::endl;
+      std::stringstream error_msg;
+      error_msg << "File "<< filename << " could not be opened: ";
       if ( (infile.rdstate() & std::ifstream::failbit ) != 0 )
-	std::cerr << "Logical error on i/o operation" << std::endl;
+	error_msg << "Logical error on i/o operation" << std::endl;
       if ( (infile.rdstate() & std::ifstream::badbit ) != 0 )
-	std::cerr << "Read/writing error on i/o operation" << std::endl;
+	error_msg << "Read/writing error on i/o operation" << std::endl;
       if ( (infile.rdstate() & std::ifstream::eofbit ) != 0 )
-	std::cerr << "End-of-File reached on input operation" << std::endl;
-      exit(-1);
+	error_msg << "End-of-File reached on input operation" << std::endl;
+      throw std::runtime_error(error_msg.str());
     }
   read_header(infile,hdr);
   input_size = (size_t) hdr.nsamples * hdr.nbits * hdr.nchans / 8;
@@ -47,15 +49,15 @@ SigprocFilterbank::SigprocFilterbank(std::string filename)
   this->nchans = hdr.nchans;
   this->tsamp = hdr.tsamp;
   this->nbits = hdr.nbits;
-  this->cfreq = hdr.cfreq;
+  this->fch1 = hdr.fch1;
   this->foff  = hdr.foff;
 }
 
 SigprocFilterbank::SigprocFilterbank(unsigend char* data_ptr, unsigned int nsamps,
 				     unsigned int nchans, unsigned char nbits,
-				     float cfreq, float foff, float tsamp)
+				     float fch1, float foff, float tsamp)
   :from_file(false),data(data_ptr),nsamps(nsamps),nchans(nchans),
-   nbits(nbits),cfreq(cfreq),foff(foff),tsamp(tsamp)
+   nbits(nbits),fch1(fch1),foff(foff),tsamp(tsamp)
 {
 }
 
