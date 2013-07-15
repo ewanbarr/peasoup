@@ -1,6 +1,5 @@
 #pragma once
 #include <string>
-#include 
 
 using namespace std;
 
@@ -16,6 +15,12 @@ protected:
   
   //Filterbank data pointer
   unsigned char* data;
+
+  //Protected constructors
+  Filterbank(unsigned char* data_ptr, unsigned int nsamps,
+	     unsigned int nchans, unsigned char nbits,
+	     float fch1, float foff, float tsamp);
+  Filterbank(void);
   
 public:
   //Setter/Getters

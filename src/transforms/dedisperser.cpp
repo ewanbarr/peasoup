@@ -5,8 +5,7 @@
 
 using namespace std;
 
-template <class FilterbankDerivative> 
-Dedisperser::Dedisperser(FilterbankDerivative& filterbank, unsigned int num_gpus)
+Dedisperser::Dedisperser(Filterbank& filterbank, unsigned int num_gpus)
   :filterbank(filterbank),
    num_gpus(num_gpus)
 {

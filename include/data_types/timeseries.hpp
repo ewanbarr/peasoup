@@ -39,11 +39,6 @@ class FilterbankChannel: public TimeSeries {
 
 //#############################
 
-
-
-
-
-
 template <class T>
 class TimeSeriesContainer {
 protected:
@@ -51,11 +46,7 @@ protected:
   unsigned int count;
   float tsamp;
   T* data_ptr;
-  
 };
-
-
-
 
 //created through Dedisperser
 template <class T>
