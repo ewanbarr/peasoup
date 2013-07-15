@@ -1,11 +1,16 @@
 #include "dedisp.h"
-#include <copy>
+#include "transforms/dedisperser.hpp"
+#include "data_types/timeseries.hpp"
+#include <algorithm>
 #include <string>
 #include <sstream>
+#include <fstream>
+#include <iostream>
+#include <stdexcept>
 
 using namespace std;
 
-Dedisperser::Dedisperser(Filterbank& filterbank, unsigned int num_gpus)
+Dedisperser::Dedisperser(SigprocFilterbank& filterbank, unsigned int num_gpus)
   :filterbank(filterbank),
    num_gpus(num_gpus)
 {
@@ -46,8 +51,9 @@ void Dedisperser::generate_dm_list(float dm_start, float dm_end,
   dedisp_error error = dedisp_generate_dm_list(plan, dm_start, dm_end,
 					       width, tolerance);
   check_dedisp_error(error,"generate_dm_list");
-  dm_list.resize(plan->dm_count);
-  std::copy(plan->dm_list.begin(),plan->dm_list.end(),dm_list.begin());
+  dm_list.resize(dedisp_get_dm_count(plan));
+  const float* plan_dm_list = dedisp_get_dm_list(plan);
+  std::copy(plan_dm_list,plan_dm_list+dm_list.size(),dm_list.begin());
 }
 
 void Dedisperser::set_killmask(std::vector<int> killmask_in)
@@ -88,25 +94,25 @@ void Dedisperser::set_killmask(std::string filename)
   }
 }
 
-void Dedisperser::dedisperse(void){
+DispersionTrials<unsigned char> Dedisperser::dedisperse(void){
   //Currently hardwired for non-subbanded dedispersion
   //with 8-bit output and no fancy flags.
   size_t max_delay = dedisp_get_max_delay(plan);
   unsigned int out_nsamps = filterbank.get_nsamps()-max_delay;
   size_t output_size = out_nsamps * dm_list.size();
-  data_ptr = new unsigned char [output_size];
+  unsigned char* data_ptr = new unsigned char [output_size];
   dedisp_error error = dedisp_execute(plan,
 				      filterbank.get_nsamps(),
-				      filterbank.get_data()
+				      filterbank.get_data(),
 				      filterbank.get_nbits(),
 				      data_ptr,8,(unsigned)0);
-  this->check_dedisp_error(error,"execute");
-  DispersionTrials ddata(data_ptr,out_nsamps,dm_list);
+  check_dedisp_error(error,"execute");
+  DispersionTrials<unsigned char> ddata(data_ptr,out_nsamps,filterbank.get_tsamp(),dm_list);
   return ddata;
 }
 
-static void Dedisperser::check_dedisp_error(dedisp_error error,
-					    std::string function_name);
+void Dedisperser::check_dedisp_error(dedisp_error error,
+				     std::string function_name)
 {
   std::stringstream error_msg;
   if (error != DEDISP_NO_ERROR)

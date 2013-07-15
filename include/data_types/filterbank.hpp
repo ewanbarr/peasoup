@@ -1,8 +1,6 @@
 #pragma once
 #include <string>
 
-using namespace std;
-
 class Filterbank {
 protected:
   //Filterbank metadata
@@ -43,7 +41,7 @@ public:
   virtual void set_nbits(unsigned char nbits);
 
   virtual unsigned char* get_data(void);
-  virtual void set_data(unsigned char*);
+  virtual void set_data(unsigned char* data);
 };
 
 class SigprocFilterbank: public Filterbank {

@@ -1,8 +1,7 @@
-//Should move all data pointers to smart pointers std::tr1::shared_pointer
-using namespace std;
+#pragma once
+#include <vector>
 
 //######################
-
 template <class T> class TimeSeries {
 protected:
   unsigned int nsamps;
@@ -10,8 +9,8 @@ protected:
   T data_ptr;
   
 public:  
-  template <class T> TimeSeries(T* data_ptr,unsigned int nsamps,float tsamp);
-  operator[](int idx);
+  TimeSeries(T* data_ptr,unsigned int nsamps,float tsamp);
+  T operator[](int idx);
   unsigned int get_nsamps(void);
   void set_nsamps(unsigned int nsamps);
   float get_tsamp(void);
@@ -20,12 +19,12 @@ public:
 
 //#########################
 
-class DedispersedTimeSeries: public TimeSeries {
+template <class T>
+class DedispersedTimeSeries: public TimeSeries<T> {
 private:
   float dm;
 
 public:
-  template<class T>
   DedispersedTimeSeries(T* data_ptr, unsigned int nsamps, float tsamp, float dm);
   float get_dm(void);
   void set_dm(float dm);
@@ -33,7 +32,8 @@ public:
 
 //###########################
 
-class FilterbankChannel: public TimeSeries {
+template <class T>
+class FilterbankChannel: public TimeSeries<T> {
 
 };
 
@@ -46,25 +46,27 @@ protected:
   unsigned int count;
   float tsamp;
   T* data_ptr;
+  TimeSeriesContainer(T* data_ptr, unsigned int nsamps, float tsamp, unsigned int count);
 };
 
 //created through Dedisperser
 template <class T>
-class DispersionTrials: public TimeSeriesContainer <T> {
+class DispersionTrials: public TimeSeriesContainer<T> {
 private:
   std::vector<float> dm_list;
   
 public:
-  DispersionTrials(T* data_ptr, unsigned int nsamps, std::vector<float> dm_list);
-  DedisperedTimeSeries operator[](int idx);
-  DedisperedTimeSeries nearest_dm(float dm);
+  DispersionTrials(T* data_ptr, unsigned int nsamps, float tsamp, std::vector<float> dm_list);
+  DedispersedTimeSeries<T> operator[](int idx);
+  DedispersedTimeSeries<T> nearest_dm(float dm);
 };
 
 //created through Channeliser
-class FilterbankChannels: public TimeSeriesContainer{
+template <class T>
+class FilterbankChannels: public TimeSeriesContainer<T> {
 
 public:
-  FilterbankChannel operator[](int idx);
-  FilterbankChannel nearest_chan(float freq);
+  FilterbankChannel<T> operator[](int idx);
+  FilterbankChannel<T> nearest_chan(float freq);
   
-}
+};

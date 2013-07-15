@@ -5,21 +5,18 @@
 #include <data_types/timeseries.hpp>
 #include <data_types/filterbank.hpp>
 
-using namespace std;
-
 class Dedisperser {
 private:
   dedisp_plan plan;
-  Filterbank& filterbank;
+  SigprocFilterbank& filterbank;
   unsigned int num_gpus;
   std::vector<float> dm_list;
   std::vector<dedisp_bool> killmask;
   static void check_dedisp_error(dedisp_error error,
-				 std::string function_name);
+			  std::string function_name);
 
 public:
-  Dedisperser(Filterbank& filterbank, unsigned int num_gpus=1);
-  
+  Dedisperser(SigprocFilterbank& filterbank, unsigned int num_gpus=1);
   void set_dm_list(float* dm_list, unsigned int ndms);
   void set_dm_list(std::vector<float> dm_list);
   std::vector<float> get_dm_list(void);
@@ -27,7 +24,7 @@ public:
 			float width, float tolerance);
   void set_killmask(std::vector<int> killmask);
   void set_killmask(std::string killmaskfile);
-  DispersionTrials dedisperse(void);
+  DispersionTrials<unsigned char> dedisperse(void);
   
 
-}
+};
