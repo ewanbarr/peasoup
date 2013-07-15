@@ -1,7 +1,22 @@
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 #include "data_types/filterbank.hpp"
 #include "data_types/header.hpp"
+
+Filterbank::Filterbank(unsigned char* data_ptr, unsigned int nsamps,
+		       unsigned int nchans, unsigned char nbits,
+		       float fch1, float foff, float tsamp)
+  :data(data_ptr),nsamps(nsamps),nchans(nchans),
+   nbits(nbits),fch1(fch1),foff(foff),tsamp(tsamp)
+{
+}
+
+Filterbank::Filterbank(void)
+  :data(NULL),nsamps(0),nchans(0),
+   nbits(0),fch1(0.0),foff(0.0),tsamp(0.0)
+{
+}
 
 float Filterbank::get_tsamp(void){return tsamp;}
 void  Filterbank::set_tsamp(float tsamp){this->tsamp = tsamp;}
@@ -21,8 +36,8 @@ void  Filterbank::set_nsamps(unsigned int nsamps){this->nsamps = nsamps;}
 float Filterbank::get_nbits(void){return nbits;}
 void  Filterbank::set_nbits(unsigned char nbits){this->nbits = nbits;}
 
-unsigned char* Filterbank::get_data(void){return data;}
-void Filterbank::set_data(unsigned char*){this->data = data;}
+unsigned char* Filterbank::get_data(void){return this->data;}
+void Filterbank::set_data(unsigned char* data){this->data = data;}
 
 SigprocFilterbank::SigprocFilterbank(std::string filename)
   :from_file(true)
@@ -30,7 +45,7 @@ SigprocFilterbank::SigprocFilterbank(std::string filename)
   std::ifstream infile;
   SigprocHeader hdr;
   infile.open(filename.c_str(),std::ifstream::in | std::ifstream::binary);
-  if(infile.bad())
+  if(!infile.good())
     {
       std::stringstream error_msg;
       error_msg << "File "<< filename << " could not be opened: ";
@@ -43,7 +58,7 @@ SigprocFilterbank::SigprocFilterbank(std::string filename)
       throw std::runtime_error(error_msg.str());
     }
   read_header(infile,hdr);
-  input_size = (size_t) hdr.nsamples * hdr.nbits * hdr.nchans / 8;
+  size_t input_size = (size_t) hdr.nsamples * hdr.nbits * hdr.nchans / 8;
   this->data = new unsigned char [(size_t) hdr.nsamples*hdr.nbits*hdr.nchans/8];
   this->nsamps = hdr.nsamples;
   this->nchans = hdr.nchans;
@@ -53,11 +68,11 @@ SigprocFilterbank::SigprocFilterbank(std::string filename)
   this->foff  = hdr.foff;
 }
 
-SigprocFilterbank::SigprocFilterbank(unsigend char* data_ptr, unsigned int nsamps,
+SigprocFilterbank::SigprocFilterbank(unsigned char* data_ptr, unsigned int nsamps,
 				     unsigned int nchans, unsigned char nbits,
 				     float fch1, float foff, float tsamp)
-  :from_file(false),data(data_ptr),nsamps(nsamps),nchans(nchans),
-   nbits(nbits),fch1(fch1),foff(foff),tsamp(tsamp)
+  :Filterbank(data_ptr,nsamps,nchans,nbits,fch1,foff,tsamp),
+   from_file(false)
 {
 }
 

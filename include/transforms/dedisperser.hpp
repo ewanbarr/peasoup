@@ -3,14 +3,14 @@
 #include <vector>
 #include <string>
 #include <data_types/timeseries.hpp>
+#include <data_types/filterbank.hpp>
 
 using namespace std;
 
-template <class FilterbankDerivative>
 class Dedisperser {
 private:
   dedisp_plan plan;
-  FilterbankDerivative& filterbank;
+  Filterbank& filterbank;
   unsigned int num_gpus;
   std::vector<float> dm_list;
   std::vector<dedisp_bool> killmask;
@@ -18,8 +18,7 @@ private:
 				 std::string function_name);
 
 public:
-  template <class FilterbankDerivative>
-  Dedisperser(FilterbankDerivative& filterbank, unsigned int num_gpus=1);
+  Dedisperser(Filterbank& filterbank, unsigned int num_gpus=1);
   
   void set_dm_list(float* dm_list, unsigned int ndms);
   void set_dm_list(std::vector<float> dm_list);
