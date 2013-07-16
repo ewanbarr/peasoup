@@ -4,6 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 #include "data_types/header.hpp"
+#include "utils/exceptions.hpp"
 
 class Filterbank {
 protected:
@@ -56,18 +57,7 @@ public:
     std::ifstream infile;
     SigprocHeader hdr;
     infile.open(filename.c_str(),std::ifstream::in | std::ifstream::binary);
-    if(!infile.good())
-      {
-	std::stringstream error_msg;
-	error_msg << "File "<< filename << " could not be opened: ";
-	if ( (infile.rdstate() & std::ifstream::failbit ) != 0 )
-	  error_msg << "Logical error on i/o operation" << std::endl;
-	if ( (infile.rdstate() & std::ifstream::badbit ) != 0 )
-	  error_msg << "Read/writing error on i/o operation" << std::endl;
-	if ( (infile.rdstate() & std::ifstream::eofbit ) != 0 )
-	  error_msg << "End-of-File reached on input operation" << std::endl;
-	throw std::runtime_error(error_msg.str());
-      }
+    ErrorChecker::check_file_error(infile, filename);
     read_header(infile,hdr);
     size_t input_size = (size_t) hdr.nsamples*hdr.nbits*hdr.nchans/8;
     this->data = new unsigned char [input_size];

@@ -1,5 +1,7 @@
 # Previous versions
 *~
+unit_tests/
+bin/
 
 # Compiled Object files
 *.slo

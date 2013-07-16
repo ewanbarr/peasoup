@@ -1,7 +1,6 @@
 include Makefile.inc
 # Output directories                                                                                                                        
 BIN_DIR     = ./bin
-LIB_DIR     = ./lib
 
 # Dependencies
 DEDISP_DIR = /lustre/home/ebarr/Soft/dedisp
@@ -17,20 +16,22 @@ TRANSFORMS_DIR = ${SRC_DIR}/transforms
 OPTIMISE = -O3
 DEBUG    = -g 
 
-INCLUDE   = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I$(TCLAP_DIR)/tclap/ -I${DEDISP_DIR}/include
+INCLUDE   = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I$(TCLAP_DIR)/tclap/ -I${DEDISP_DIR}/include -I${CUDA_DIR}/include
 LIBS = -L$(CUDA_DIR)/lib64 -lcuda -lcudart -L${DEDISP_DIR}/lib -ldedisp
 
-CUFLAGS  = --compiler-options -Wall --machine 64 -arch=$(GPU_ARCH) -Xcompiler ${DEBUG}
+NVCCFLAGS  = --compiler-options -Wall --machine 64 -arch=$(GPU_ARCH) -Xcompiler ${DEBUG}
 FLAGS    = -fPIC -Wall ${OPTIMISE} ${DEBUG}
 
+EXE_FILES = ${BIN_DIR}/dedisp_test
 
 
-CPPOBJS = ${OBJ_DIR}/filterbank.o ${OBJ_DIR}/timeseries.o ${OBJ_DIR}/dedisperser.o
+all: directories ${EXE_FILES}
 
-all: directories ${CPPOBJS} ${LIB_DIR}/libpeasoup.so
+${BIN_DIR}/dedisp_test: ${SRC_DIR}/dedisp_test.cpp
+	${GXX} ${FLAGS} ${INCLUDE} ${LIBS} $< -o $@ 
 
 directories:
 	@mkdir -p ${BIN_DIR}
 
 clean:
-	rm -f ${LIB_DIR}/*.so ${OBJ_DIR}/*.o
+	@rm -rf ${BIN_DIR}/*

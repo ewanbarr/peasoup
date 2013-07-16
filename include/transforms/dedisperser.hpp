@@ -7,29 +7,18 @@
 #include <stdexcept>
 #include <data_types/timeseries.hpp>
 #include <data_types/filterbank.hpp>
+#include <utils/exceptions.hpp>
 
 class Dedisperser {
 private:
   dedisp_plan plan;
-  SigprocFilterbank& filterbank;
+  Filterbank& filterbank;
   unsigned int num_gpus;
   std::vector<float> dm_list;
   std::vector<dedisp_bool> killmask;
   
-  static void check_dedisp_error(dedisp_error error,
-				 std::string function_name)
-  {
-    std::stringstream error_msg;
-    if (error != DEDISP_NO_ERROR)
-      {
-	error_msg << function_name << " failed with DEDISP error: "
-		  << dedisp_get_error_string(error) << std::endl;
-	throw std::runtime_error(error_msg.str());
-      }
-  }
-  
 public:
-  Dedisperser(SigprocFilterbank& filterbank, unsigned int num_gpus=1)
+  Dedisperser(Filterbank& filterbank, unsigned int num_gpus=1)
     :filterbank(filterbank), num_gpus(num_gpus)
   {
     killmask.resize(filterbank.get_nchans(),1);
@@ -39,7 +28,7 @@ public:
 						  filterbank.get_fch1(),
 						  filterbank.get_foff(),
 						  num_gpus);
-    check_dedisp_error(error,"create_plan_multi");
+    ErrorChecker::check_dedisp_error(error,"create_plan_multi");
   }
 
   void set_dm_list(float* dm_list_ptr, unsigned int ndms)
@@ -47,7 +36,7 @@ public:
     dm_list.resize(ndms);
     std::copy(dm_list_ptr, dm_list_ptr+ndms, dm_list.begin());
     dedisp_error error = dedisp_set_dm_list(plan,&dm_list[0],dm_list.size());
-    check_dedisp_error(error,"set_dm_list");
+    ErrorChecker::check_dedisp_error(error,"set_dm_list");
   }
 
   void set_dm_list(std::vector<float> dm_list_vec)
@@ -55,7 +44,7 @@ public:
     dm_list.resize(dm_list_vec.size());
     std::copy(dm_list_vec.begin(), dm_list_vec.end(), dm_list.begin());
     dedisp_error error = dedisp_set_dm_list(plan,&dm_list[0],dm_list.size());
-    check_dedisp_error(error,"set_dm_list");
+    ErrorChecker::check_dedisp_error(error,"set_dm_list");
   }
 
   std::vector<float> get_dm_list(void){
@@ -66,7 +55,7 @@ public:
 			float width, float tolerance)
   {
     dedisp_error error = dedisp_generate_dm_list(plan, dm_start, dm_end, width, tolerance);
-    check_dedisp_error(error,"generate_dm_list");
+    ErrorChecker::check_dedisp_error(error,"generate_dm_list");
     dm_list.resize(dedisp_get_dm_count(plan));
     const float* plan_dm_list = dedisp_get_dm_list(plan);
     std::copy(plan_dm_list,plan_dm_list+dm_list.size(),dm_list.begin());
@@ -76,7 +65,7 @@ public:
   {
     killmask.swap(killmask_in);
     dedisp_error error = dedisp_set_killmask(plan,&killmask[0]);
-    check_dedisp_error(error,"set_killmask");
+    ErrorChecker::check_dedisp_error(error,"set_killmask");
   }
 
   void set_killmask(std::string filename)
@@ -85,29 +74,21 @@ public:
     std::string str;
     killmask.clear();
     infile.open(filename.c_str(),std::ifstream::in | std::ifstream::binary);
-    if(infile.bad())
-      {
-	std::stringstream error_msg;
-	error_msg << "File "<< filename << " could not be opened: ";
-	if ( (infile.rdstate() & std::ifstream::failbit ) != 0 )
-	  error_msg << "Logical error on i/o operation" << std::endl;
-	if ( (infile.rdstate() & std::ifstream::badbit ) != 0 )
-	  error_msg << "Read/writing error on i/o operation" << std::endl;
-	if ( (infile.rdstate() & std::ifstream::eofbit ) != 0 )
-	  error_msg << "End-of-File reached on input operation" << std::endl;
-	throw std::runtime_error(error_msg.str());
-      }
+    ErrorChecker::check_file_error(infile,filename);
+    
     while(!infile.eof()){
       std::getline(infile, str);
       killmask.push_back(std::atoi(str.c_str()));
     }
+    
     if (killmask.size() != filterbank.get_nchans()){
       std::cerr << "WARNING: killmask is not the same size as nchans" << std::endl;
       killmask.resize(filterbank.get_nchans(),1);
     } else {
       dedisp_error error = dedisp_set_killmask(plan,&killmask[0]);
-      check_dedisp_error(error,"set_killmask");
+      ErrorChecker::check_dedisp_error(error,"set_killmask");
     }
+    
   }
   
   //DispersionTrials<unsigned char> dedisperse(void);
@@ -123,7 +104,7 @@ public:
 					filterbank.get_nbits(),
 					data_ptr,8,(unsigned)0);
     
-    check_dedisp_error(error,"execute");
+    ErrorChecker::check_dedisp_error(error,"execute");
     DispersionTrials<unsigned char> ddata(data_ptr,out_nsamps,filterbank.get_tsamp(),dm_list);
     return ddata;
   }
