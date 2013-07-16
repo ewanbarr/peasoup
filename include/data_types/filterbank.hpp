@@ -1,5 +1,9 @@
 #pragma once
 #include <string>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include "data_types/header.hpp"
 
 class Filterbank {
 protected:
@@ -15,41 +19,76 @@ protected:
   //Protected constructors
   Filterbank(unsigned char* data_ptr, unsigned int nsamps,
 	     unsigned int nchans, unsigned char nbits,
-	     float fch1, float foff, float tsamp);
-  Filterbank(void);
+	     float fch1, float foff, float tsamp)
+    :data(data_ptr),nsamps(nsamps),nchans(nchans),
+     nbits(nbits),fch1(fch1),foff(foff),tsamp(tsamp){}
   
+  Filterbank(void)
+    :data(0),nsamps(0),nchans(0),
+     nbits(0),fch1(0.0),foff(0.0),tsamp(0.0){}
+
 public:
-  //Setter/Getters
-  virtual float get_tsamp(void);
-  virtual void set_tsamp(float tsamp);
-
-  virtual float get_foff(void);
-  virtual void set_foff(float foff);
-
-  virtual float get_fch1(void);
-  virtual void set_fch1(float cfreq);
-
-  virtual float get_nchans(void);
-  virtual void set_nchans(unsigned int nchans);
-
-  virtual float get_nsamps(void);
-  virtual void set_nsamps(unsigned int nsamps);
-
-  virtual float get_nbits(void);
-  virtual void set_nbits(unsigned char nbits);
-
-  virtual unsigned char* get_data(void);
-  virtual void set_data(unsigned char* data);
+  virtual float get_tsamp(void){return tsamp;}
+  virtual void set_tsamp(float tsamp){this->tsamp = tsamp;}
+  virtual float get_foff(void){return foff;}
+  virtual void set_foff(float foff){this->foff = foff;}
+  virtual float get_fch1(void){return fch1;}
+  virtual void set_fch1(float fch1){this->fch1 = fch1;}
+  virtual float get_nchans(void){return nchans;}
+  virtual void set_nchans(unsigned int nchans){this->nchans = nchans;}
+  virtual float get_nsamps(void){return nsamps;}
+  virtual void set_nsamps(unsigned int nsamps){this->nsamps = nsamps;}
+  virtual float get_nbits(void){return nbits;}
+  virtual void set_nbits(unsigned char nbits){this->nbits = nbits;}
+  virtual unsigned char* get_data(void){return this->data;}
+  virtual void set_data(unsigned char *data){this->data = data;}
 };
+
 
 class SigprocFilterbank: public Filterbank {
 private:
   bool from_file;
 
 public:
-  SigprocFilterbank(std::string filename);
+  SigprocFilterbank(std::string filename)
+    :from_file(true)
+  {
+    std::ifstream infile;
+    SigprocHeader hdr;
+    infile.open(filename.c_str(),std::ifstream::in | std::ifstream::binary);
+    if(!infile.good())
+      {
+	std::stringstream error_msg;
+	error_msg << "File "<< filename << " could not be opened: ";
+	if ( (infile.rdstate() & std::ifstream::failbit ) != 0 )
+	  error_msg << "Logical error on i/o operation" << std::endl;
+	if ( (infile.rdstate() & std::ifstream::badbit ) != 0 )
+	  error_msg << "Read/writing error on i/o operation" << std::endl;
+	if ( (infile.rdstate() & std::ifstream::eofbit ) != 0 )
+	  error_msg << "End-of-File reached on input operation" << std::endl;
+	throw std::runtime_error(error_msg.str());
+      }
+    read_header(infile,hdr);
+    size_t input_size = (size_t) hdr.nsamples*hdr.nbits*hdr.nchans/8;
+    this->data = new unsigned char [input_size];
+    infile.seekg(hdr.size, std::ios::beg);
+    infile.read(reinterpret_cast<char*>(this->data), input_size);
+    this->nsamps = hdr.nsamples;
+    this->nchans = hdr.nchans;
+    this->tsamp = hdr.tsamp;
+    this->nbits = hdr.nbits;
+    this->fch1 = hdr.fch1;
+    this->foff  = hdr.foff;
+  }
+  
   SigprocFilterbank(unsigned char* data_ptr, unsigned int nsamps,
                     unsigned int nchans, unsigned char nbits,
-                    float fch1, float foff, float tsamp);    
-  ~SigprocFilterbank();
+                    float fch1, float foff, float tsamp)
+    :Filterbank(data_ptr,nsamps,nchans,nbits,fch1,foff,tsamp),from_file(false){}
+       
+  ~SigprocFilterbank()
+  {
+    if (from_file)
+      delete [] this->data;
+  }
 };
