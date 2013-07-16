@@ -107,7 +107,9 @@ DispersionTrials<unsigned char> Dedisperser::dedisperse(void){
 				      filterbank.get_nbits(),
 				      data_ptr,8,(unsigned)0);
   check_dedisp_error(error,"execute");
+  
   DispersionTrials<unsigned char> ddata(data_ptr,out_nsamps,filterbank.get_tsamp(),dm_list);
+  
   return ddata;
 }
 

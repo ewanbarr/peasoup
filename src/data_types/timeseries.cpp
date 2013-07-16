@@ -68,7 +68,7 @@ TimeSeriesContainer<T>::TimeSeriesContainer(T* data_ptr, unsigned int nsamps,
 template <class T>
 DispersionTrials<T>::DispersionTrials(T* data_ptr, unsigned int nsamps, 
 				      float tsamp, std::vector<float> dm_list_in)
-  :TimeSeriesContainer<T>(data_ptr,nsamps,tsamp,dm_list_in.size())
+  :TimeSeriesContainer<T>(data_ptr,nsamps,tsamp, (unsigned int)dm_list_in.size())
 {
   dm_list.swap(dm_list_in);
 }

@@ -58,7 +58,6 @@ SigprocFilterbank::SigprocFilterbank(std::string filename)
       throw std::runtime_error(error_msg.str());
     }
   read_header(infile,hdr);
-  size_t input_size = (size_t) hdr.nsamples * hdr.nbits * hdr.nchans / 8;
   this->data = new unsigned char [(size_t) hdr.nsamples*hdr.nbits*hdr.nchans/8];
   this->nsamps = hdr.nsamples;
   this->nchans = hdr.nchans;

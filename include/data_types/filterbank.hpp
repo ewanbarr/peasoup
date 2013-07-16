@@ -4,16 +4,14 @@
 class Filterbank {
 protected:
   //Filterbank metadata
-  float tsamp;
-  float foff;
-  float fch1;
-  unsigned int nchans;
-  unsigned int nsamps;
-  unsigned char nbits;
-  
-  //Filterbank data pointer
   unsigned char* data;
-
+  unsigned int nsamps;
+  unsigned int nchans;
+  unsigned char nbits;
+  float fch1;
+  float foff;
+  float tsamp;
+  
   //Protected constructors
   Filterbank(unsigned char* data_ptr, unsigned int nsamps,
 	     unsigned int nchans, unsigned char nbits,
