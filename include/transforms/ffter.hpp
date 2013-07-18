@@ -4,23 +4,40 @@
 #include "data_types/timeseries.hpp"
 #include "utils/exceptions.hpp"
 
-template <class T>
-class FFTer {
-private:
+class CuFFTer {
+protected:
   cufftHandle fft_plan;
-  
+  unsigned int size; 
+  CuFFTer(void):fft_plan(0),size(0){}
+  unsigned int get_size(void){return size;}
+
 public:
-  void generate_r2c_plan(size_t size, size_t batch=1)
+  double get_resolution(float tsamp){
+    return (double) 1.0/(size * tsamp);
+  }
+};
+
+
+class CuFFTerR2C: public CuFFTer {
+
+public:
+  CuFFTerR2C(unsigned int size, unsigned int batch=1)
+    :CuFFTer()
   {
+    this->size = size;
     cufftResult error = cufftPlan1d(&fft_plan, size, CUFFT_R2C, 1);
     ErrorChecker::check_cufft_error(error);
   }
   
-  void execute_r2c(DeviceTimeSeries& tim){
-    cufftComplex* temp;
+  unsigned int get_output_size(void){
+    return size/2+1;
+  }
+  
+  void execute(DeviceTimeSeries& tim, DeviceFourierSeries& fseries){
     cufftResult error = cufftExecR2C(fft_plan,
-					 (cufftReal*) tim.get_data(),
-					 (cufftComplex*) temp);
-    ErrorChecker::check_cufft_error(error)
+                                     (cufftReal*) tim.get_data(),
+                                     (cufftComplex*) fseries.get_data());
+    ErrorChecker::check_cufft_error(error);
   }
 };
+

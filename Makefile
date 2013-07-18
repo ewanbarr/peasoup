@@ -17,13 +17,12 @@ OPTIMISE = -O3
 DEBUG    = -g 
 
 INCLUDE   = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I$(TCLAP_DIR)/tclap/ -I${DEDISP_DIR}/include -I${CUDA_DIR}/include
-LIBS = -L$(CUDA_DIR)/lib64 -lcuda -lcudart -L${DEDISP_DIR}/lib -ldedisp
+LIBS = -L$(CUDA_DIR)/lib64 -lcuda -lcudart -L${DEDISP_DIR}/lib -ldedisp -lcufft
 
-NVCCFLAGS  = --compiler-options -Wall --machine 64 -arch=$(GPU_ARCH) -Xcompiler ${DEBUG}
-FLAGS    = -fPIC -Wall ${OPTIMISE} ${DEBUG}
+NVCCFLAGS  = --compiler-options --machine 64 -arch=$(GPU_ARCH) -Xcompiler ${DEBUG}
+FLAGS    = -fPIC ${OPTIMISE} ${DEBUG}
 
 EXE_FILES = ${BIN_DIR}/dedisp_test
-
 
 all: directories ${EXE_FILES}
 

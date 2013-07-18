@@ -43,6 +43,7 @@ int main(void)
   d_tim.enable_reusable_copy_buffer();
 
   DeviceTimeSeries d_tim_r(fft_size);
+  
 
   for (int ii=0; ii < (int)trials.get_count(); ii++){    
     tim = trials[ii];

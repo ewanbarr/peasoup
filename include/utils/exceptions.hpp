@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <string>
 #include <sstream>
+#include <execinfo.h>
 #include "dedisp.h"
 #include "cuda.h"
 #include "cuda_runtime.h"
@@ -96,7 +97,24 @@ public:
 	  error_msg <<  "<unknown>";
 	}
       error_msg << std::endl;
+      print_stack_trace(20);
       throw std::runtime_error(error_msg.str());
+    }
+  }
+
+  static void print_stack_trace(unsigned int max_depth){
+    int trace_depth;    
+    void *buffer[max_depth];
+    char **strings;
+
+    trace_depth = backtrace(buffer, max_depth); 
+    strings = backtrace_symbols(buffer, trace_depth);
+    if (strings == NULL) {
+      std::cerr << "Stack trace failed" << std::endl;
+    } else {
+      for (int jj = 0; jj < trace_depth; jj++)
+	std::cerr << strings[jj] << std::endl;
+      free(strings);
     }
   }
 };
