@@ -69,58 +69,68 @@ public:
 };
 
 
-//####################                                                                                    
-//Device wrappers for the above classes
-class DeviceTimeSeries: public TimeSeries<float> {
-private:
-  unsigned char* copy_buffer;
-  bool reusable;
-
-public:
+template <class OnDeviceType>
+class DeviceTimeSeries: public TimeSeries<OnDeviceType> {
+  
   DeviceTimeSeries(unsigned int nsamps)
-    :TimeSeries<float>(nsamps),reusable(false)
+    :TimeSeries<OnDeviceType>(nsamps),reusable(false)
   {
-    cudaError_t error = cudaMalloc((void**)&this->data_ptr, sizeof(float)*nsamps);
-    ErrorChecker::check_cuda_error(error);
-  }
-  
-  void enable_reusable_copy_buffer(void){
-    reusable = true;
-    cudaError_t error = cudaMalloc((void**)&copy_buffer, sizeof(unsigned char)*nsamps);
+    cudaError_t error = cudaMalloc((void**)&this->data_ptr, sizeof(OnDeviceType)*nsamps);
     ErrorChecker::check_cuda_error(error);
   }
 
-  void disable_reusable_copy_buffer(void){
-    reusable = false;
-    cudaFree(copy_buffer);
-  }
-
-  void copy_from_host(TimeSeries<float>& host_tim)
+  template <class OnHostType>
+  DeviceTimeSeries(TimeSeries<OnHostType>& host_tim)
   {
-    tsamp = host_tim.get_tsamp();
-    cudaError_t error = cudaMemcpy(data_ptr, host_tim.get_data(),
-				   nsamps, cudaMemcpyHostToDevice);
-    ErrorChecker::check_cuda_error(error);
-  }
-  
-  void copy_from_host(TimeSeries<unsigned char>& host_tim)
-  {
-    tsamp = host_tim.get_tsamp();
     cudaError_t error;
-
-    if (!reusable){
-      error = cudaMalloc((void**)&copy_buffer, sizeof(unsigned char)*nsamps);
-      ErrorChecker::check_cuda_error(error);
-    }
-
+    OnHostType* copy_buffer;
+    error = cudaMalloc((void**)&copy_buffer, sizeof(OnHostType)*nsamps);
+    ErrorChecker::check_cuda_error(error);
     error = cudaMemcpy(copy_buffer, host_tim.get_data(), nsamps, cudaMemcpyHostToDevice);
     ErrorChecker::check_cuda_error(error);
-    thrust::device_ptr<unsigned char> thrust_copy_ptr(copy_buffer);
-    thrust::device_ptr<float> thrust_data_ptr(data_ptr);
+    thrust::device_ptr<OnHostType> thrust_copy_ptr(copy_buffer);
+    thrust::device_ptr<OnDeviceType> thrust_data_ptr(data_ptr);
     thrust::copy(thrust_copy_ptr, thrust_copy_ptr+nsamps, thrust_data_ptr);
-    
-    if(!reusable)
-      cudaFree(copy_buffer);
+    tsamp = host_tim.get_tsamp();
+    cudaFree(copy_buffer);
+  }
+ 
+  ~DeviceTimeSeries()
+  {
+    cudaFree(data_ptr);
+  }
+
+};
+
+template <class OnDeviceType,class OnHostType>
+class ReusableDeviceTimeSeries: public TimeSeries<OnDeviceType> {
+private:
+  OnHostType* copy_buffer;
+  
+public:
+  ReusableDeviceTimeSeries(unsigned int nsamps)
+    :TimeSeries<OnDeviceType>(nsamps),reusable(false)
+  {
+    cudaError_t error = cudaMalloc((void**)&this->data_ptr, sizeof(OnDeviceType)*nsamps);
+    ErrorChecker::check_cuda_error(error);
+    error = cudaMalloc((void**)&copy_buffer, sizeof(OnHostType)*nsamps);
+    ErrorChecker::check_cuda_error(error);
+  }
+  
+  void copy_from_host(TimeSeries<OnHostType>& host_tim)
+  {
+    tsamp = host_tim.get_tsamp();
+    cudaError_t error = cudaMemcpy(copy_buffer, host_tim.get_data(), nsamps, cudaMemcpyHostToDevice);
+    ErrorChecker::check_cuda_error(error);
+    thrust::device_ptr<OnHostType> thrust_copy_ptr(copy_buffer);
+    thrust::device_ptr<OnDeviceType> thrust_data_ptr(data_ptr);
+    thrust::copy(thrust_copy_ptr, thrust_copy_ptr+nsamps, thrust_data_ptr);
+  }
+
+  ~ReusableDeviceTimeSeries()
+  {
+    cudaFree(copy_buffer);
+    cudaFree(data_ptr);
   }
 };
 
@@ -157,7 +167,8 @@ public:
     dm_list.swap(dm_list_in);
   }
   
-  DedispersedTimeSeries<T> operator[](int idx){
+  DedispersedTimeSeries<T> operator[](int idx)
+  {
     T* ptr = this->data_ptr+idx*this->nsamps;
     return DedispersedTimeSeries<T>(ptr, this->nsamps, this->tsamp, dm_list[idx]);
   }

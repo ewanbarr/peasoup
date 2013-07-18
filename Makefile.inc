@@ -1,9 +1,12 @@
 # This is where common definitions go
 
+#cuda setup
 CUDA_DIR   = /usr/local/cuda-4.2/
 THRUST_DIR = /usr/local/cuda-4.2/include/
-# Kepler
-#GPU_ARCH = sm_30
+
+#dedisp setup
+DEDISP_DIR = /lustre/home/ebarr/Soft/dedisp
+
 # Fermi
 GPU_ARCH = sm_20
 

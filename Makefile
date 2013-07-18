@@ -1,36 +1,38 @@
 include Makefile.inc
+
 # Output directories                                                                                                                        
 BIN_DIR     = ./bin
-
-# Dependencies
-DEDISP_DIR = /lustre/home/ebarr/Soft/dedisp
-TCLAP_DIR  = ./
+OBJ_DIR     = ./obj
 
 # Paths
 SRC_DIR  = ./src
 INCLUDE_DIR = ./include
-DATA_TYPES_DIR = ${SRC_DIR}/data_types
-TRANSFORMS_DIR = ${SRC_DIR}/transforms
 
 # Compiler flags
 OPTIMISE = -O3
 DEBUG    = -g 
 
-INCLUDE   = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I$(TCLAP_DIR)/tclap/ -I${DEDISP_DIR}/include -I${CUDA_DIR}/include
+# Includes and libraries
+INCLUDE  = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I${DEDISP_DIR}/include -I${CUDA_DIR}/include
 LIBS = -L$(CUDA_DIR)/lib64 -lcuda -lcudart -L${DEDISP_DIR}/lib -ldedisp -lcufft
 
-NVCCFLAGS  = --compiler-options --machine 64 -arch=$(GPU_ARCH) -Xcompiler ${DEBUG}
-FLAGS    = -fPIC ${OPTIMISE} ${DEBUG}
+# compiler flags
+NVCCFLAGS  = --compiler-options ${OPTIMISE} -Wall --machine 64 -arch=$(GPU_ARCH) -Xcompiler ${DEBUG}
+CFLAGS    = -fPIC ${OPTIMISE} ${DEBUG}
 
 EXE_FILES = ${BIN_DIR}/dedisp_test
 
 all: directories ${EXE_FILES}
 
-${BIN_DIR}/dedisp_test: ${SRC_DIR}/dedisp_test.cpp
-	${GXX} ${FLAGS} ${INCLUDE} ${LIBS} $< -o $@ 
+${OBJ_DIR}/kernels.o: ${SRC_DIR}/kernels.cu
+	${NVCC} -c ${NVCCFLAGS} $< -o $@
+
+${BIN_DIR}/dedisp_test: ${SRC_DIR}/dedisp_test.cpp ${OBJ_DIR}/kernels.o
+	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@ 
 
 directories:
 	@mkdir -p ${BIN_DIR}
+	@mkdir -p ${OBJ_DIR}
 
 clean:
-	@rm -rf ${BIN_DIR}/*
+	@rm -rf ${OBJ_DIR}/*.o

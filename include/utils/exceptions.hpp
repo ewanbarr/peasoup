@@ -50,6 +50,11 @@ public:
       throw std::runtime_error(error_msg.str());
     }
   }
+
+  static void check_cuda_error(){
+    check_cuda_error(cudaGetLastError());
+  }
+
   
   static void check_cufft_error(cufftResult error){
     if (error!=CUFFT_SUCCESS){
