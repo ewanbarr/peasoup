@@ -72,11 +72,12 @@ public:
 template <class OnDeviceType>
 class DeviceTimeSeries: public TimeSeries<OnDeviceType> {
 public:
-  DeviceTimeSeries(unsigned int nsamps)
+  DeviceTimeSeries(unsigned int nsamps,bool reusable=false)
     :TimeSeries<OnDeviceType>(nsamps)
   {
     cudaError_t error = cudaMalloc((void**)&this->data_ptr, sizeof(OnDeviceType)*nsamps);
     ErrorChecker::check_cuda_error(error);
+    
   }
 
   template <class OnHostType>
@@ -103,18 +104,17 @@ public:
 
 };
 
+
 template <class OnDeviceType,class OnHostType>
-class ReusableDeviceTimeSeries: public TimeSeries<OnDeviceType> {
+class ReusableDeviceTimeSeries: public DeviceTimeSeries<OnDeviceType> {
 private:
   OnHostType* copy_buffer;
   
 public:
   ReusableDeviceTimeSeries(unsigned int nsamps)
-    :TimeSeries<OnDeviceType>(nsamps)
+    :DeviceTimeSeries<OnDeviceType>(nsamps)
   {
-    cudaError_t error = cudaMalloc((void**)&this->data_ptr, sizeof(OnDeviceType)*this->nsamps);
-    ErrorChecker::check_cuda_error(error);
-    error = cudaMalloc((void**)&copy_buffer, sizeof(OnHostType)*this->nsamps);
+    cudaError_t error = cudaMalloc((void**)&copy_buffer, sizeof(OnHostType)*this->nsamps);
     ErrorChecker::check_cuda_error(error);
   }
   

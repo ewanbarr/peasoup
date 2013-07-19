@@ -17,10 +17,11 @@ public:
   //Force float until the kernel gets templated
   void resample(DeviceTimeSeries<float>& input, DeviceTimeSeries<float>& output, float acc)
   {
-    device_resample(input.get_data(), output.get_data(), input.get_nsamps()
+    device_resample(input.get_data(), output.get_data(), input.get_nsamps(),
 		    acc, input.get_tsamp(), block_size,  max_blocks);
     ErrorChecker::check_cuda_error();
   }
+
 };
 
 

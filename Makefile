@@ -18,17 +18,19 @@ INCLUDE  = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I${DEDISP_DIR}/include -I${CUDA_DIR
 LIBS = -L$(CUDA_DIR)/lib64 -lcuda -lcudart -L${DEDISP_DIR}/lib -ldedisp -lcufft
 
 # compiler flags
-NVCCFLAGS  = ${OPTIMISE} --compiler-options -Wall --machine 64 -arch=$(GPU_ARCH) -Xcompiler ${DEBUG}
+NVCC_COMP_FLAGS = --compiler-options -Wall
+NVCCFLAGS  = ${OPTIMISE} --machine 64 -arch=$(GPU_ARCH) -Xcompiler ${DEBUG}
 CFLAGS    = -fPIC ${OPTIMISE} ${DEBUG}
 
+OBJECTS   = ${OBJ_DIR}/kernels.o
 EXE_FILES = ${BIN_DIR}/dedisp_test
 
-all: directories ${EXE_FILES}
+all: directories ${OBJECTS} ${EXE_FILES}
 
 ${OBJ_DIR}/kernels.o: ${SRC_DIR}/kernels.cu
-	${NVCC} -c ${NVCCFLAGS} $< -o $@
+	${NVCC} -c ${NVCCFLAGS} ${INCLUDE} $<  -o $@
 
-${BIN_DIR}/dedisp_test: ${SRC_DIR}/dedisp_test.cpp
+${BIN_DIR}/dedisp_test: ${SRC_DIR}/dedisp_test.cpp ${OBJECTS}
 	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@ 
 
 directories:

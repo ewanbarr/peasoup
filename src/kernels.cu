@@ -1,5 +1,6 @@
 #include <iostream>
 #include "cuda.h"
+#include "cufft.h"
 #include <thrust/transform.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/transform_reduce.h>
@@ -10,6 +11,8 @@
 #include <thrust/copy.h>
 #include <thrust/tuple.h>
 #include <thrust/fill.h>
+#include <kernels/defaults.h>
+#include <utils/exceptions.hpp>
 
 //--------------Harmonic summing----------------//
 
@@ -58,12 +61,14 @@ void device_harmonic_sum(float* d_input_array, float* d_output_array,
 							  one_over_sqrt_harm);
       gulp_index = gulp_index + blocks*max_threads;
     }
+  ErrorChecker::check_cuda_error();
   return;
 }
 
 //------------spectrum forming--------------//
 
-__global__ void power_series_kernel(cufftComplex *d_idata,float* d_odata, int size)
+__global__ 
+void power_series_kernel(cufftComplex *d_idata,float* d_odata, int size)
 {
   float* d_idata_float = (float*)d_idata;
   int Index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -191,6 +196,7 @@ void device_resample(float * d_idata, float * d_odata,
       jstretch_kernel<<< dimGrid, dimBlock, 0 >>>(d_odata+start_index, d_idata+start_index, start_index, gulp_length,(float)a,(float)timestep);
       start_index += gulp_length;
     }
+  ErrorChecker::check_cuda_error();
 }
 
 //------------------peak finding-----------------//
@@ -221,6 +227,8 @@ int device_find_peaks(int n, int start_index, float * d_dat,
   int num_copied = thrust::copy_if(zipped_iter, zipped_iter+n-start_index,zipped_out_iter,greater_than_threshold(thresh)) - zipped_out_iter;
   thrust::copy(d_index.begin(),d_index.begin()+num_copied,indexes);
   thrust::copy(d_snrs.begin(),d_snrs.begin()+num_copied,snrs);
+
+  ErrorChecker::check_cuda_error();
   return(num_copied);
 }
 
@@ -269,7 +277,6 @@ void device_normalise_spectrum(int nsamp,
   float mean;
   float rms;
   float meansquares;
-  cudaError_t error;
   
   if (*sigma==0.0) {
     mean = GPU_mean(d_power_spectrum,nsamp,min_bin);
@@ -283,6 +290,8 @@ void device_normalise_spectrum(int nsamp,
                     thrust::make_constant_iterator(*sigma),
                     thrust::device_ptr<float>(d_normalised_power_spectrum),
                     thrust::divides<float>());
+  ErrorChecker::check_cuda_error();
+  
 }
 /*
 //--------------Time series folder----------------//

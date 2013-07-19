@@ -68,6 +68,11 @@ private:
 public:
   DevicePowerSpectrum(unsigned int nbins, double bin_width)
     :DeviceFrequencySeries<T>(nbins,bin_width){}
+  
+  template <class U>
+  DevicePowerSpectrum(FrequencySeries<U>& other)
+    :DeviceFrequencySeries<T>(other.get_nbins(),other.get_bin_width()){}
+
 };
 
 
@@ -75,24 +80,39 @@ public:
 template <class T>
 class HarmonicSums {
 private:
-  std::vector<DevicePowerSpectrum<T> > folds;
+  DevicePowerSpectrum<T>& fold0;
+  std::vector<T*> folds;
 
 public:
   HarmonicSums(DevicePowerSpectrum<T>& fold0, unsigned int nfolds)
+    :fold0(fold0)
   {
+    cudaError_t error;
+    folds.resize(nfolds);
     for (int ii=0;ii<nfolds;ii++)
       {
-	folds.push_back(DevicePowerSpectrum<T>(fold0.get_nbins(),fold0.get_resolution()));
+	error = cudaMalloc((void**)&folds[ii], sizeof(T)*fold0.get_nbins());
+	ErrorChecker::check_cuda_error(error);
       }
   }
-
   size_t size(void){
     return folds.size();
   }
   
-  DevicePowerSpectrum<T>& operator[](int ii){
+  T* operator[](int ii){
     return folds[ii];
   }
+
+  ~HarmonicSums()
+  {
+    for (int ii=0;ii<folds.size();ii++)
+      {
+	cudaFree(&folds[ii]);
+      }
+    folds.clear();
+  }
+  
+
 };
 
 
