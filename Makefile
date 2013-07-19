@@ -1,3 +1,4 @@
+
 include Makefile.inc
 
 # Output directories                                                                                                                        
@@ -17,7 +18,7 @@ INCLUDE  = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I${DEDISP_DIR}/include -I${CUDA_DIR
 LIBS = -L$(CUDA_DIR)/lib64 -lcuda -lcudart -L${DEDISP_DIR}/lib -ldedisp -lcufft
 
 # compiler flags
-NVCCFLAGS  = --compiler-options ${OPTIMISE} -Wall --machine 64 -arch=$(GPU_ARCH) -Xcompiler ${DEBUG}
+NVCCFLAGS  = ${OPTIMISE} --compiler-options -Wall --machine 64 -arch=$(GPU_ARCH) -Xcompiler ${DEBUG}
 CFLAGS    = -fPIC ${OPTIMISE} ${DEBUG}
 
 EXE_FILES = ${BIN_DIR}/dedisp_test
@@ -27,7 +28,7 @@ all: directories ${EXE_FILES}
 ${OBJ_DIR}/kernels.o: ${SRC_DIR}/kernels.cu
 	${NVCC} -c ${NVCCFLAGS} $< -o $@
 
-${BIN_DIR}/dedisp_test: ${SRC_DIR}/dedisp_test.cpp ${OBJ_DIR}/kernels.o
+${BIN_DIR}/dedisp_test: ${SRC_DIR}/dedisp_test.cpp
 	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@ 
 
 directories:

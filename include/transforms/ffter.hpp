@@ -33,11 +33,12 @@ public:
     return size/2+1;
   }
   
-  void execute(DeviceTimeSeries<float>& tim, DeviceFourierSeries<cufftComplex>& fseries){
-    cufftResult error = cufftExecR2C(fft_plan,
-                                     (cufftReal*) tim.get_data(),
-                                     (cufftComplex*) fseries.get_data());
+  void execute(float* tim, cufftComplex* fseries)
+  {
+    cufftResult error = cufftExecR2C(fft_plan, (cufftReal*) tim, fseries);
     ErrorChecker::check_cufft_error(error);
   }
+  
+  
 };
 

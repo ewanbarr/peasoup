@@ -11,11 +11,16 @@ protected:
   T* data_ptr;
   unsigned int nbins;
   double bin_width;
+
   FrequencySeries(void)
     :data_ptr(0),nbins(0),bin_width(0){}
   
   FrequencySeries(unsigned int nbins, double bin_width)
-    :data_ptr(0),nbins(nbins),bin_width(bin_width){}
+  {
+    this->data_ptr = 0;
+    this->nbins = nbins;
+    this->bin_width = bin_width;
+  }
 
   FrequencySeries(T* data_ptr, unsigned int nbins, double bin_width)
     :data_ptr(data_ptr),nbins(nbins),bin_width(bin_width){}
@@ -35,13 +40,13 @@ protected:
   DeviceFrequencySeries(unsigned int nbins, double bin_width)
     :FrequencySeries<T>(nbins,bin_width)
   {
-    cudaError_t error = cudaMalloc((void**)&data_ptr, sizeof(T)*nbins);
+    cudaError_t error = cudaMalloc((void**)&this->data_ptr, sizeof(T)*nbins);
     ErrorChecker::check_cuda_error(error);
   }
 
   ~DeviceFrequencySeries()
   {
-    cudaFree(data_ptr);
+    cudaFree(this->data_ptr);
   }
   
 };
@@ -51,7 +56,7 @@ template <class T>
 class DeviceFourierSeries: public DeviceFrequencySeries<T> {
 public:
   DeviceFourierSeries(unsigned int nbins, double bin_width)
-    :DeviceFrequencySeriess<T>(nbins,bin_width){}
+    :DeviceFrequencySeries<T>(nbins,bin_width){}
 };
 
 //template class should be real valued
@@ -70,15 +75,14 @@ public:
 template <class T>
 class HarmonicSums {
 private:
-  std::vector<DevicePowerSeries<T>> folds;
+  std::vector<DevicePowerSpectrum<T> > folds;
 
 public:
-  HarmonicSums(DevicePowerSeries<T>& fold0, unsigned int nfolds)
-    :zeroth_fold(zeroth_fold)
+  HarmonicSums(DevicePowerSpectrum<T>& fold0, unsigned int nfolds)
   {
     for (int ii=0;ii<nfolds;ii++)
       {
-	folds.push_back(DevicePowerSeries<T>(fold0.get_nbins(),fold0.get_resolution()));
+	folds.push_back(DevicePowerSpectrum<T>(fold0.get_nbins(),fold0.get_resolution()));
       }
   }
 
@@ -86,7 +90,7 @@ public:
     return folds.size();
   }
   
-  DevicePowerSeries<T>& operator[](int ii){
+  DevicePowerSpectrum<T>& operator[](int ii){
     return folds[ii];
   }
 };
