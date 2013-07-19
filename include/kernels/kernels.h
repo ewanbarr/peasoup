@@ -4,7 +4,9 @@
 void device_harmonic_sum(float* d_input_array,
 			 float* d_output_array,
 			 int original_size,
-			 int harmonic);
+			 int harmonic,
+			 unsigned int max_blocks,
+			 unsigned int max_threads);
 
 void device_form_power_series(cufftComplex* d_array_in,
 			      float* d_array_out,

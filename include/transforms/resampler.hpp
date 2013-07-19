@@ -22,3 +22,5 @@ public:
     ErrorChecker::check_cuda_error();
   }
 };
+
+

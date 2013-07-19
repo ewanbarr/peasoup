@@ -3,6 +3,7 @@
 #include "cufft.h"
 #include "cuda.h"
 #include "utils/exceptions.hpp"
+#include <vector>
 
 template <class T>
 class FrequencySeries {
@@ -37,6 +38,12 @@ protected:
     cudaError_t error = cudaMalloc((void**)&data_ptr, sizeof(T)*nbins);
     ErrorChecker::check_cuda_error(error);
   }
+
+  ~DeviceFrequencySeries()
+  {
+    cudaFree(data_ptr);
+  }
+  
 };
 
 //template class should be cufftComplex/cufftDoubleComplex
@@ -50,9 +57,38 @@ public:
 //template class should be real valued
 template <class T>
 class DevicePowerSpectrum: public DeviceFrequencySeries<T> {
+private:
+  unsigned char fold_no;
+  
 public:
   DevicePowerSpectrum(unsigned int nbins, double bin_width)
     :DeviceFrequencySeries<T>(nbins,bin_width){}
-}
+};
+
+
+//
+template <class T>
+class HarmonicSums {
+private:
+  std::vector<DevicePowerSeries<T>> folds;
+
+public:
+  HarmonicSums(DevicePowerSeries<T>& fold0, unsigned int nfolds)
+    :zeroth_fold(zeroth_fold)
+  {
+    for (int ii=0;ii<nfolds;ii++)
+      {
+	folds.push_back(DevicePowerSeries<T>(fold0.get_nbins(),fold0.get_resolution()));
+      }
+  }
+
+  size_t size(void){
+    return folds.size();
+  }
+  
+  DevicePowerSeries<T>& operator[](int ii){
+    return folds[ii];
+  }
+};
 
 

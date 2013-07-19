@@ -33,7 +33,7 @@ public:
     return size/2+1;
   }
   
-  void execute(DeviceTimeSeries& tim, DeviceFourierSeries& fseries){
+  void execute(DeviceTimeSeries<float>& tim, DeviceFourierSeries<cufftComplex>& fseries){
     cufftResult error = cufftExecR2C(fft_plan,
                                      (cufftReal*) tim.get_data(),
                                      (cufftComplex*) fseries.get_data());

@@ -32,7 +32,8 @@ void harmonic_sum_kernel_generic(float *d_idata, float *d_odata,
 }
 
 void device_harmonic_sum(float* d_input_array, float* d_output_array,
-			 int original_size, int harmonic)
+			 int original_size, int harmonic, 
+			 unsigned int max_blocks, unsigned int max_threads)
 {
   int gulps;
   int gulp_counter;
@@ -40,22 +41,22 @@ void device_harmonic_sum(float* d_input_array, float* d_output_array,
   int gulp_size;
   int blocks = 0;
   float one_over_sqrt_harm = 1.0f/sqrt((float)harmonic);
-  gulps = original_size/(MAX_BLOCKS*MAX_THREADS)+1;
+  gulps = original_size/(max_blocks*max_threads)+1;
   for(gulp_counter = 0; gulp_counter<gulps; gulp_counter++)
     {
       if(gulp_counter<gulps-1)
         {
-          gulp_size = MAX_BLOCKS*MAX_THREADS;
+          gulp_size = max_blocks*max_threads;
         }
       else
         {
-          gulp_size = original_size - gulp_counter*MAX_BLOCKS*MAX_THREADS;
+          gulp_size = original_size - gulp_counter*max_blocks*max_threads;
         }
       blocks = (gulp_size-1)/MAX_THREADS + 1;
-      harmonic_sum_kernel_generic<<<blocks,MAX_THREADS>>>(d_input_array,d_output_array,
+      harmonic_sum_kernel_generic<<<blocks,max_threads>>>(d_input_array,d_output_array,
 							  gulp_index,gulp_size,harmonic,
 							  one_over_sqrt_harm);
-      gulp_index = gulp_index + blocks*MAX_THREADS;
+      gulp_index = gulp_index + blocks*max_threads;
     }
   return;
 }
@@ -283,19 +284,51 @@ void device_normalise_spectrum(int nsamp,
                     thrust::device_ptr<float>(d_normalised_power_spectrum),
                     thrust::divides<float>());
 }
-
+/*
 //--------------Time series folder----------------//
 
 
 __global__ 
-void time_series_folder_kernel(float* i_data, float* o_data, unsigned int size, float tsamp, float period){
-  int Index = blockIdx.x * blockDim.x + threadIdx.x;
-  if(Index<size)
-    {
-      
-    }
+void time_series_folder_kernel(float* i_data, float* o_data,
+			       unsigned int size, float tsamp,
+			       float period, float accel,
+			       unsigned int nbins, unsigned int nints)
+{
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  
 
+  float tj = idx*tsamp;
+  phasebin = abs(((int)(nbins*tj*(1+accel*(tj-tobs)/(2*c))/period + 0.5)))%nbins;
+
+  
 }
 
+void foldTim(float* buffer,
+	     double* result,
+	     int* counts, 
+	     double tsamp,
+	     double period,
+	     double accel,
+	     int nsamps,
+	     int nbins,
+	     int nints)
+{
+  int ii,phasebin,subbint,factor1;
+  float factor2,tj;
+  float c = 299792458.0;
+  int tobs;
+  
+  tobs = (int) (nsamps*tsamp);
+  factor1 = (int) ((nsamps/nints)+1);
+
+  for(ii=0;ii<nsamps;ii++){
+    tj = ii*tsamp;
+    phasebin = abs(((int)(nbins*tj*(1+accel*(tj-tobs)/(2*c))/period + 0.5)))%nbins;
+    subbint = (int) ii/factor1;
+    result[(subbint*nbins)+phasebin]+=buffer[ii];
+    counts[(subbint*nbins)+phasebin]++;
+  }
+}
+*/
 
 //--------------End--------------//
