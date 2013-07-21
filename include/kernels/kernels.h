@@ -34,3 +34,20 @@ void device_normalise_spectrum(int nsamp,
 			       int min_bin,
 			       float * sigma);
 
+void device_rebin_time_series(float* input,
+			      float* output,
+                              float period,
+			      float tsamp,
+                              unsigned int in_size, 
+			      unsigned int out_size,
+                              unsigned int nbins,
+                              unsigned int max_blocks,
+			      unsigned int max_threads);
+
+void device_create_subints(float* input,
+			   float* output,
+                           unsigned int nbins,
+                           unsigned int output_size,
+                           unsigned int nrots_per_subint,
+                           unsigned int max_blocks,
+                           unsigned int max_threads);

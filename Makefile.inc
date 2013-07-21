@@ -1,8 +1,8 @@
 # This is where common definitions go
 
 #cuda setup
-CUDA_DIR   = /usr/local/cuda-4.2/
-THRUST_DIR = /usr/local/cuda-4.2/include/
+CUDA_DIR   = /usr/local/cuda-5.0/
+THRUST_DIR = /usr/local/cuda-5.0/include/
 
 #dedisp setup
 DEDISP_DIR = /lustre/home/ebarr/Soft/dedisp
@@ -13,5 +13,5 @@ GPU_ARCH = sm_20
 GCC       = gcc
 GXX       = g++
 AR        = ar
-NVCC      = /usr/local/cuda-4.2/bin/nvcc
+NVCC      = /usr/local/cuda-5.0/bin/nvcc
 SHELL     = /bin/csh

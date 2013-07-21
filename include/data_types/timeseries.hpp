@@ -7,6 +7,7 @@
 
 //TEMP
 #include <stdio.h>
+#include <iostream>
 
 //######################
 
@@ -72,7 +73,7 @@ public:
 template <class OnDeviceType>
 class DeviceTimeSeries: public TimeSeries<OnDeviceType> {
 public:
-  DeviceTimeSeries(unsigned int nsamps,bool reusable=false)
+  DeviceTimeSeries(unsigned int nsamps)
     :TimeSeries<OnDeviceType>(nsamps)
   {
     cudaError_t error = cudaMalloc((void**)&this->data_ptr, sizeof(OnDeviceType)*nsamps);
@@ -99,7 +100,10 @@ public:
  
   ~DeviceTimeSeries()
   {
+    std::cout << "freeing" << std::endl;
     cudaFree(this->data_ptr);
+    ErrorChecker::check_cuda_error();
+    std::cout << "done" << std::endl;
   }
 
 };

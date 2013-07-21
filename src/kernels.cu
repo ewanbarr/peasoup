@@ -22,7 +22,7 @@ void harmonic_sum_kernel_generic(float *d_idata, float *d_odata,
 				 float one_over_sqrt_harm)
 {
   int Index = blockIdx.x * blockDim.x + threadIdx.x;
-  if(Index<size)
+  if(Index<size) //This is a bug!
     {
       d_odata[gulp_index+Index] = d_idata[gulp_index+Index];
       for(int i = 1; i < harmonic; i++)
@@ -247,7 +247,9 @@ float GPU_rms(T* d_collection,int nsamps, int min_bin)
   float rms;
 
   using thrust::device_ptr;
-  rms_sum = thrust::transform_reduce(device_ptr<T>(d_collection)+min_bin, device_ptr<T>(d_collection)+nsamps, square<T>(),T(0),thrust::plus<T>());
+  rms_sum = thrust::transform_reduce(device_ptr<T>(d_collection)+min_bin,
+				     device_ptr<T>(d_collection)+nsamps,
+				     square<T>(),T(0),thrust::plus<T>());
   rms = sqrt(float(rms_sum)/float(nsamps-min_bin));
 
   return rms;
@@ -260,7 +262,8 @@ float GPU_mean(T* d_collection,int nsamps, int min_bin)
   T m_sum;
 
   using thrust::device_ptr;
-  m_sum = thrust::reduce(device_ptr<T>(d_collection)+min_bin, device_ptr<T>(d_collection)+nsamps);
+  m_sum = thrust::reduce(device_ptr<T>(d_collection)+min_bin,
+			 device_ptr<T>(d_collection)+nsamps);
 
   cudaThreadSynchronize();
   mean = float(m_sum)/float(nsamps-min_bin);
@@ -293,51 +296,92 @@ void device_normalise_spectrum(int nsamp,
   ErrorChecker::check_cuda_error();
   
 }
-/*
+
 //--------------Time series folder----------------//
 
 
 __global__ 
-void time_series_folder_kernel(float* i_data, float* o_data,
-			       unsigned int size, float tsamp,
-			       float period, float accel,
-			       unsigned int nbins, unsigned int nints)
+void rebin_time_series_kernel(float* i_data, float* o_data,
+			      unsigned int size, float tsamp,
+			      float period, unsigned int nbins,
+			      unsigned int gulp_idx) 
+{ 
+  int ii;
+  float val;
+  int count;
+  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
+  if (idx>size)
+    return;
+  int start_idx = __float2int_rn(idx*period/(tsamp*nbins));
+  int end_idx = __float2int_rn((idx+1)*period/(tsamp*nbins));
+  for (ii=start_idx;ii<end_idx;ii++)
+    {
+      val+=i_data[ii];
+      count++;
+    }
+  o_data[idx] = val/count;
+}
+
+
+__global__ 
+void create_subints_kernel(float* input, float* output,
+			   unsigned int nbins,
+			   unsigned int output_size,
+			   unsigned int nrots_per_subint)
 {
+  int ii;
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  
-
-  float tj = idx*tsamp;
-  phasebin = abs(((int)(nbins*tj*(1+accel*(tj-tobs)/(2*c))/period + 0.5)))%nbins;
-
-  
+  if (idx>output_size)
+    return;
+  unsigned int bin = idx%nbins;
+  unsigned int subint = idx/nbins;
+  unsigned int offset = subint*nrots_per_subint*nbins;
+  float val = 0;
+  for (ii=0;ii<nrots_per_subint;ii++)
+    {
+      val+=input[(ii*nbins)+bin+offset];
+    }
+  output[idx] = val/nrots_per_subint;
 }
 
-void foldTim(float* buffer,
-	     double* result,
-	     int* counts, 
-	     double tsamp,
-	     double period,
-	     double accel,
-	     int nsamps,
-	     int nbins,
-	     int nints)
+void device_create_subints(float* input, float* output,
+			   unsigned int nbins,
+                           unsigned int output_size,
+                           unsigned int nrots_per_subint,
+			   unsigned int max_blocks,
+			   unsigned int max_threads)
 {
-  int ii,phasebin,subbint,factor1;
-  float factor2,tj;
-  float c = 299792458.0;
-  int tobs;
-  
-  tobs = (int) (nsamps*tsamp);
-  factor1 = (int) ((nsamps/nints)+1);
-
-  for(ii=0;ii<nsamps;ii++){
-    tj = ii*tsamp;
-    phasebin = abs(((int)(nbins*tj*(1+accel*(tj-tobs)/(2*c))/period + 0.5)))%nbins;
-    subbint = (int) ii/factor1;
-    result[(subbint*nbins)+phasebin]+=buffer[ii];
-    counts[(subbint*nbins)+phasebin]++;
-  }
+  unsigned int nblocks = output_size/max_threads + 1;
+  create_subints_kernel<<<nblocks,max_threads>>>(input,output,nbins,
+						 output_size,
+						 nrots_per_subint);
 }
-*/
+
+
+void device_rebin_time_series(float* input, float* output,
+			      float period, float tsamp,
+			      unsigned int in_size, unsigned int out_size,
+			      unsigned int nbins,
+			      unsigned int max_blocks, unsigned int max_threads)
+{
+  unsigned int gulps;
+  unsigned int gulp_counter;
+  unsigned int gulp_index = 0;
+  unsigned int gulp_size;
+  unsigned int blocks = 0;
+  gulps = out_size/(max_blocks*max_threads)+1;
+  for (gulp_counter = 0; gulp_counter<gulps; gulp_counter++)
+    {
+      if (gulp_counter<gulps-1)
+	gulp_size = max_blocks*max_threads;
+      else
+	gulp_size = out_size-gulp_counter*max_blocks*max_threads;
+      blocks = (gulp_size-1)/max_threads + 1;
+      gulp_index += blocks*max_threads;
+      rebin_time_series_kernel<<<blocks,max_threads>>>(input,output,out_size,
+						       tsamp,period,nbins,
+						       gulp_index);
+    }
+}
 
 //--------------End--------------//
