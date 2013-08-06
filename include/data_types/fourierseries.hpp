@@ -47,6 +47,7 @@ protected:
   ~DeviceFrequencySeries()
   {
     cudaFree(this->data_ptr);
+    ErrorChecker::check_cuda_error();
   }
   
 };

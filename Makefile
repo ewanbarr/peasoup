@@ -23,12 +23,18 @@ NVCCFLAGS  = ${OPTIMISE} --machine 64 -arch=$(GPU_ARCH) -Xcompiler ${DEBUG}
 CFLAGS    = -fPIC ${OPTIMISE} ${DEBUG}
 
 OBJECTS   = ${OBJ_DIR}/kernels.o
-EXE_FILES = ${BIN_DIR}/folder_test
+EXE_FILES = ${BIN_DIR}/rednoise
 
 all: directories ${OBJECTS} ${EXE_FILES}
 
 ${OBJ_DIR}/kernels.o: ${SRC_DIR}/kernels.cu
 	${NVCC} -c ${NVCCFLAGS} ${INCLUDE} $<  -o $@
+
+${BIN_DIR}/rednoise: ${SRC_DIR}/rednoise_test.cpp ${OBJECTS}
+	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
+
+${BIN_DIR}/hcfft: ${SRC_DIR}/hcfft.cpp
+	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $< -o $@
 
 ${BIN_DIR}/folder_test: ${SRC_DIR}/folder_test.cpp ${OBJECTS}
 	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@

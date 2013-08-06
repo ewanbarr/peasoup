@@ -188,7 +188,8 @@ bool read_header(BinaryStream& stream, Header& header) {
 	if( 0 == header.nsamples ) {
 		// Compute the number of samples from the file size
 		stream.seekg(0, std::ios::end);
-		header.nsamples = stream.tellg() / header.nchans * 8 / header.nbits;
+		size_t total_size = stream.tellg();
+		header.nsamples = (total_size-header.size) / header.nchans * 8 / header.nbits;
 		// Seek back to the end of the header
 		stream.seekg(header.size, std::ios::beg);
 	}

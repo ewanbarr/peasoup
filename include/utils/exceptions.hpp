@@ -42,6 +42,25 @@ public:
     }
   }
 
+  static void check_file_error(std::ofstream& infile, std::string filename){
+    if(!infile.good()) {
+      std::stringstream error_msg;
+      error_msg << "File "<< filename << " could not be opened: ";
+
+      if ( (infile.rdstate() & std::ifstream::failbit ) != 0 )
+        error_msg << "Logical error on i/o operation" << std::endl;
+
+      if ( (infile.rdstate() & std::ifstream::badbit ) != 0 )
+        error_msg << "Read/writing error on i/o operation" << std::endl;
+
+      if ( (infile.rdstate() & std::ifstream::eofbit ) != 0 )
+        error_msg << "End-of-File reached on input operation" << std::endl;
+
+      throw std::runtime_error(error_msg.str());
+    }
+  }
+
+
   static void check_cuda_error(cudaError_t error){
     if (error!=cudaSuccess){
       std::stringstream error_msg;
@@ -53,6 +72,10 @@ public:
 
   static void check_cuda_error(){
     check_cuda_error(cudaGetLastError());
+  }
+
+  static void throw_error(std::string msg){
+    throw std::runtime_error(msg.c_str());
   }
 
   

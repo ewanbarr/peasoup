@@ -4,13 +4,14 @@
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include "utils/exceptions.hpp"
+#include <data_types/header.hpp>
+#include <string>
 
 //TEMP
 #include <stdio.h>
 #include <iostream>
 
 //######################
-
 template <class T> class TimeSeries {
 protected:
   T* data_ptr;
@@ -37,7 +38,25 @@ public:
   void set_nsamps(unsigned int nsamps){this->nsamps = nsamps;}
   float get_tsamp(void){return tsamp;}
   void set_tsamp(float tsamp){this->tsamp = tsamp;}
+  
+  virtual void from_file(std::string filename)
+  {
+    std::ifstream infile;
+    SigprocHeader hdr;
+    infile.open(filename.c_str(),std::ifstream::in | std::ifstream::binary);
+    ErrorChecker::check_file_error(infile, filename);
+    read_header(infile,hdr);
+    if (hdr.nbits/8!=sizeof(T))
+      ErrorChecker::throw_error("Bad bit size in input time series");
+    size_t input_size = (size_t) hdr.nsamples*sizeof(T);
+    this->data_ptr = new T [hdr.nsamples];
+    infile.seekg(hdr.size, std::ios::beg);
+    infile.read(reinterpret_cast<char*>(this->data_ptr), input_size);
+    this->nsamps = hdr.nsamples;
+    this->tsamp = hdr.tsamp;
+  }
 };
+
 
 //#########################
 
@@ -87,9 +106,12 @@ public:
   {
     cudaError_t error;
     OnHostType* copy_buffer;
+    error = cudaMalloc((void**)&this->data_ptr, sizeof(OnDeviceType)*this->nsamps);
+    ErrorChecker::check_cuda_error(error);
     error = cudaMalloc((void**)&copy_buffer, sizeof(OnHostType)*this->nsamps);
     ErrorChecker::check_cuda_error(error);
-    error = cudaMemcpy(copy_buffer, host_tim.get_data(), this->nsamps, cudaMemcpyHostToDevice);
+    error = cudaMemcpy(copy_buffer, host_tim.get_data(), 
+		       this->nsamps*sizeof(OnHostType), cudaMemcpyHostToDevice);
     ErrorChecker::check_cuda_error(error);
     thrust::device_ptr<OnHostType> thrust_copy_ptr(copy_buffer);
     thrust::device_ptr<OnDeviceType> thrust_data_ptr(this->data_ptr);
@@ -100,10 +122,8 @@ public:
  
   ~DeviceTimeSeries()
   {
-    std::cout << "freeing" << std::endl;
     cudaFree(this->data_ptr);
     ErrorChecker::check_cuda_error();
-    std::cout << "done" << std::endl;
   }
 
 };
@@ -125,7 +145,8 @@ public:
   void copy_from_host(TimeSeries<OnHostType>& host_tim)
   {
     this->tsamp = host_tim.get_tsamp();
-    cudaError_t error = cudaMemcpy(copy_buffer, host_tim.get_data(), this->nsamps, cudaMemcpyHostToDevice);
+    cudaError_t error = cudaMemcpy(copy_buffer, host_tim.get_data(), 
+				   this->nsamps*sizeof(OnHostType), cudaMemcpyHostToDevice);
     ErrorChecker::check_cuda_error(error);
     thrust::device_ptr<OnHostType> thrust_copy_ptr(copy_buffer);
     thrust::device_ptr<OnDeviceType> thrust_data_ptr(this->data_ptr);
@@ -135,7 +156,6 @@ public:
   ~ReusableDeviceTimeSeries()
   {
     cudaFree(copy_buffer);
-    cudaFree(this->data_ptr);
   }
 };
 
