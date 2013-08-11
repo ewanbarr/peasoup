@@ -28,6 +28,13 @@ int device_find_peaks(int n,
 		      int * indexes,
 		      float * snrs);
 
+void device_normalise(float* d_powers,
+                      float mean,
+                      float sigma,
+                      unsigned int size,
+                      unsigned int max_blocks,
+                      unsigned int max_threads);
+
 void device_normalise_spectrum(int nsamp,
 			       float* d_power_spectrum,
 			       float* d_normalised_power_spectrum,
@@ -161,3 +168,16 @@ void device_zap_birdies(cuComplex* fseries,
 			unsigned int fseries_size,
                         unsigned int max_blocks,
 			unsigned int max_threads);
+
+//-----------stats-----------//
+
+template <typename T>
+float GPU_rms(T* d_collection,
+	      int nsamps,
+	      int min_bin);
+
+template <typename T>
+float GPU_mean(T* d_collection,
+	       int nsamps,
+	       int min_bin);  
+

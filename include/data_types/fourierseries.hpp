@@ -64,56 +64,45 @@ public:
 template <class T>
 class DevicePowerSpectrum: public DeviceFrequencySeries<T> {
 private:
-  unsigned char fold_no;
+  unsigned int nh;
   
 public:
-  DevicePowerSpectrum(unsigned int nbins, double bin_width)
-    :DeviceFrequencySeries<T>(nbins,bin_width){}
+  DevicePowerSpectrum(unsigned int nbins, double bin_width,unsigned int nh=0)
+    :DeviceFrequencySeries<T>(nbins,bin_width),nh(nh){}
   
   template <class U>
-  DevicePowerSpectrum(FrequencySeries<U>& other)
-    :DeviceFrequencySeries<T>(other.get_nbins(),other.get_bin_width()){}
+  DevicePowerSpectrum(FrequencySeries<U>& other,unsigned int nh=0)
+    :DeviceFrequencySeries<T>(other.get_nbins(),other.get_bin_width()),nh(nh){}
+
+  unsigned int get_nh(void){return nh;}
+  void set_nh(unsigned int nh_){nh=nh_;}
 
 };
 
-
-//
 template <class T>
 class HarmonicSums {
 private:
-  DevicePowerSpectrum<T>& fold0;
-  std::vector<T*> folds;
+  std::vector< DevicePowerSpectrum<T>* > folds;
 
 public:
   HarmonicSums(DevicePowerSpectrum<T>& fold0, unsigned int nfolds)
-    :fold0(fold0)
   {
-    cudaError_t error;
-    folds.resize(nfolds);
+    folds.reserve(nfolds);
     for (int ii=0;ii<nfolds;ii++)
-      {
-	error = cudaMalloc((void**)&folds[ii], sizeof(T)*fold0.get_nbins());
-	ErrorChecker::check_cuda_error(error);
-      }
+      folds.push_back(new DevicePowerSpectrum<T>(fold0,ii+1));
   }
+  
   size_t size(void){
     return folds.size();
   }
-  
-  T* operator[](int ii){
+
+  DevicePowerSpectrum<T>* operator[](int ii){
     return folds[ii];
   }
-
+  
   ~HarmonicSums()
   {
     for (int ii=0;ii<folds.size();ii++)
-      {
-	cudaFree(&folds[ii]);
-      }
-    folds.clear();
+      delete folds[ii];
   }
-  
-
 };
-
-

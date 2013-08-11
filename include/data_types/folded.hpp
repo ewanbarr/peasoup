@@ -15,6 +15,7 @@ private:
   int opt_width;
   int opt_bin;
   float opt_sn;
+  float tobs;
 
 public:
   FoldedSubints(unsigned int nbins, unsigned int nints)
@@ -40,7 +41,9 @@ public:
   int get_opt_bin(void){return opt_bin;}
   void set_opt_sn(float sn){opt_sn=sn;}
   float get_opt_sn(void){return opt_sn;}
-  
+  void set_tobs(float tobs_){tobs=tobs_;}
+  float get_tobs(void){return tobs;}
+
 
   void change_shape(unsigned int nbins_, unsigned int nints_){
     if ( nbins_*nints_ > nbins*nints ){

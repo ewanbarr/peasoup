@@ -17,16 +17,8 @@ public:
   {
     for (int ii=0;ii<sums.size();ii++)
       {
-
-	std::cout << fold0.get_data() 
-		  << "\t" << sums[ii]
-		  <<"\t"<<  fold0.get_nbins()
-		  <<"\t"<<  pow(2,ii+1)
-		  <<"\t"<< max_blocks
-		  <<"\t"<< max_threads << std::endl;
-	
 	device_harmonic_sum(fold0.get_data(),
-			    sums[ii],
+			    sums[ii]->get_data(),
 			    fold0.get_nbins(),
 			    pow(2,ii+1),
 			    max_blocks,
@@ -44,4 +36,6 @@ public:
 			max_threads);
   }
 
+  
+  
 };

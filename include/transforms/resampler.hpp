@@ -5,20 +5,21 @@
 
 class TimeDomainResampler {
 private:
-  unsigned int block_size;
+  unsigned int max_threads;
   unsigned int max_blocks;
   
 public:
-  TimeDomainResampler(unsigned int block_size=BLOCK_SIZE, unsigned int max_blocks=MAX_BLOCKS)
-    :block_size(block_size),max_blocks(max_blocks)    
+  TimeDomainResampler(unsigned int max_threads=MAX_THREADS, unsigned int max_blocks=MAX_BLOCKS)
+    :max_threads(max_threads),max_blocks(max_blocks)    
   {
   }
   
   //Force float until the kernel gets templated
-  void resample(DeviceTimeSeries<float>& input, DeviceTimeSeries<float>& output, float acc)
+  void resample(DeviceTimeSeries<float>& input, DeviceTimeSeries<float>& output, 
+		unsigned int size, float acc)
   {
-    device_resample(input.get_data(), output.get_data(), input.get_nsamps(),
-		    acc, input.get_tsamp(), block_size,  max_blocks);
+    device_resample(input.get_data(), output.get_data(), size,
+		    acc, input.get_tsamp(),max_threads,  max_blocks);
     ErrorChecker::check_cuda_error();
   }
 

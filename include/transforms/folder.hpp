@@ -33,6 +33,7 @@ public:
   void fold(DeviceTimeSeries<float>& input,FoldedSubints<float>& output, float period)
   {
     output.set_period(period);
+    output.set_tobs(input.get_nsamps()*input.get_tsamp());
     unsigned int nbins = output.get_nbins();
     unsigned int nints = output.get_nints();
     float tobs = input.get_nsamps() * input.get_tsamp();
@@ -255,19 +256,11 @@ public:
     float sn1 = 0;
     float sn2 = 0;
     calculate_sn(opt_prof, opt_bin, opt_template+1, nbins, &sn1, &sn2);
-
-    std::cout << "SN1: " << sn1 << "\n" 
-	      << "SN2: " << sn2 << std::endl;
-
-    std::cout << "Bin: " << opt_bin << "\n"
-              << "Width: " << opt_template+1 << "\n" 
-	      << "Shift: " << opt_shift << std::endl;
-
     fold.set_opt_sn(std::max(sn1,sn2));
-
-    std::cout << "OPT S/N IS " << fold.get_opt_sn() << std::endl;
-
-    fold.set_opt_period(0.00000); //FIX THIS
+    
+    float p = fold.get_period();
+    float tobs = fold.get_tobs();
+    fold.set_opt_period(p*(((opt_shift*p)/(nbins*tobs))+1));
     fold.set_opt_width(opt_template+1);
     fold.set_opt_bin(opt_bin);
         

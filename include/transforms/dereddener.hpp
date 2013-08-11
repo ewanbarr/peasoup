@@ -39,8 +39,8 @@ public:
   }
 
   void calculate_median(DevicePowerSpectrum<float>& powers, 
-			float boundary_5_freq=0.5,
-			float boundary_25_freq=2.0)
+			float boundary_5_freq=0.05,
+			float boundary_25_freq=0.5)
   {
     if (powers.get_nbins()!=size)
       ErrorChecker::throw_error("Bad data length given to running_median()");
