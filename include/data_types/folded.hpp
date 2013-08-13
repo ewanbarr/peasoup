@@ -1,7 +1,9 @@
 #pragma once
 #include <utils/exceptions.hpp>
+#include <utils/utils.hpp>
 #include "cuda.h"
 #include "cufft.h"
+#include <iostream>
 
 template <class T>
 class FoldedSubints {
@@ -21,8 +23,7 @@ public:
   FoldedSubints(unsigned int nbins, unsigned int nints)
     :data_ptr(0),nbins(nbins),nints(nints),period(0),accel(0)
   {
-    cudaError_t error = cudaMalloc((void**)&data_ptr, nbins*nints*sizeof(T));
-    ErrorChecker::check_cuda_error(error);
+    Utils::device_malloc<T>(&data_ptr,nbins*nints);
   }
   
   T* get_data(void){return data_ptr;}
@@ -44,18 +45,7 @@ public:
   void set_tobs(float tobs_){tobs=tobs_;}
   float get_tobs(void){return tobs;}
 
-
-  void change_shape(unsigned int nbins_, unsigned int nints_){
-    if ( nbins_*nints_ > nbins*nints ){
-      cudaFree(data_ptr);
-      cudaError_t error = cudaMalloc((void**)&data_ptr, nbins_*nints_*sizeof(T));
-      ErrorChecker::check_cuda_error(error);
-      this->nbins = nbins_;
-      this->nints = nints_;
-    }else{
-      this->nbins = nbins_;
-      this->nints = nints_;
-    }
+  ~FoldedSubints(){
+    Utils::device_free(data_ptr);
   }
-
 };

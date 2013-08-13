@@ -64,6 +64,8 @@ private:
     int ii,jj,kk;
     float ratio,freq;
     int nh;
+    float upper_tol = 1+tolerance;
+    float lower_tol = 1-tolerance;
     float fundi_freq = cands[idx].freq;
     for (ii=idx+1;ii<size;ii++){
       freq = cands[ii].freq;
@@ -71,7 +73,7 @@ private:
       for (jj=1;jj<=max_harm;jj++){
         for (kk=1;kk<=pow(2.0,nh);kk++){
           ratio = kk*freq/(jj*fundi_freq);
-          if (ratio>(1-tolerance)&&ratio<(1+tolerance)){
+          if (ratio>(lower_tol)&&ratio<(upper_tol)){
             unique[ii]=false;
           }
 	}
@@ -109,9 +111,11 @@ private:
     float edge = fundi_freq*tolerance;
 
     for (ii=idx+1;ii<size;ii++){
+      /*
       if (cands[ii].nh > cands[idx].nh){
 	continue;
       }
+      */
       delta_acc = fundi_acc-cands[ii].acc;
       acc_freq = correct_for_acceleration(fundi_freq,delta_acc);
       
@@ -129,10 +133,39 @@ private:
   
 public:
   AccelerationDistiller(float tobs, float tolerance)
-    :tobs(tobs),tolerance(tolerance)
-  {
+    :tobs(tobs),tolerance(tolerance){
     tobs_over_c = tobs/SPEED_OF_LIGHT;
   }
 };
-
 //NOTE: +ve acceleration is away from observer
+
+
+class DMDistiller: public BaseDistiller {
+private:
+  float tolerance;
+  float ratio;
+
+  void condition(std::vector<Candidate>& cands,int idx)
+  {
+    int ii;
+    float fundi_freq = cands[idx].freq;
+    float upper_tol = 1+tolerance;
+    float lower_tol = 1-tolerance;
+    for (ii=idx+1;ii<size;ii++){
+      /*
+      if (cands[ii].nh > cands[idx].nh){
+        continue;
+      }
+      */
+      ratio = cands[ii].freq/fundi_freq;
+      if (ratio>(lower_tol)&&ratio<(upper_tol)){
+	unique[ii]=false;
+      }
+    }
+  }
+  
+public:
+  DMDistiller(float tolerance)
+    :tolerance(tolerance){}
+};
+

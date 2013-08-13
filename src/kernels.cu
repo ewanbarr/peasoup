@@ -28,7 +28,7 @@ void harmonic_sum_kernel_generic(float *d_idata, float *d_odata,
 				 float one_over_sqrt_harm)
 {
   int Index = blockIdx.x * blockDim.x + threadIdx.x;
-  if(Index<size) //This is a bug!
+  if(Index<size) 
     {
       d_odata[gulp_index+Index] = d_idata[gulp_index+Index];
       for(int i = 1; i < harmonic; i++)
@@ -268,7 +268,8 @@ int device_find_peaks(int n, int start_index, float * d_dat,
   thrust::counting_iterator<int> iter(start_index);
   zip_iterator<tuple<counting_iterator<int>,thrust::device_ptr<float> > > zipped_iter = make_zip_iterator(make_tuple(iter,dptr_dat));
   zip_iterator<tuple<indices_iterator,snr_iterator> > zipped_out_iter = make_zip_iterator(make_tuple(d_index.begin(),d_snrs.begin()));
-  int num_copied = thrust::copy_if(zipped_iter, zipped_iter+n-start_index,zipped_out_iter,greater_than_threshold(thresh)) - zipped_out_iter;
+  int num_copied = thrust::copy_if(zipped_iter, zipped_iter+n-start_index,
+				   zipped_out_iter,greater_than_threshold(thresh)) - zipped_out_iter;
   thrust::copy(d_index.begin(),d_index.begin()+num_copied,indexes);
   thrust::copy(d_snrs.begin(),d_snrs.begin()+num_copied,snrs);
 

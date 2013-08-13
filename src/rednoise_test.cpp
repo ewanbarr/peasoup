@@ -34,7 +34,7 @@ int main(void)
   DeviceTimeSeries<float> d_tim(tim);
   DeviceTimeSeries<float> d_tim_r(tim);
   //unsigned int size = 187503;
-  unsigned int size = pow(2,23);
+  unsigned int size = pow(2,26);
   float tobs = size*d_tim.get_tsamp();
   float bin_width = 1.0/tobs;
   TimeDomainResampler resampler;
@@ -76,7 +76,8 @@ int main(void)
 
   CandidateCollection accel_trial_cands;
 
-  for (float ii=-20.0;ii<20.0;ii+=0.5){
+  //for (float ii=-20.0;ii<20.0;ii+=0.5){
+  float ii=0;
     //std::cout << "---------   "<<ii<<"    -----------" << std::endl;
   resampler.resample(d_tim,d_tim_r,size,ii);
   //Utils::dump_device_buffer<float>(d_tim.get_data(),size,"tim.bin");
@@ -90,19 +91,20 @@ int main(void)
   //Utils::dump_device_buffer<float>(pspec.get_data(),size/2+1,"pspec_post.bin");
   
   harm_folder.fold(pspec,sums);
-  /*
-  Utils::dump_device_buffer<float>(pspec.get_data(),size/2+1,"harm0.bin");
-  Utils::dump_device_buffer<float>(sums[0]->get_data(),size/2+1,"harm1.bin");
-  Utils::dump_device_buffer<float>(sums[1]->get_data(),size/2+1,"harm2.bin");
-  Utils::dump_device_buffer<float>(sums[2]->get_data(),size/2+1,"harm3.bin");
-  Utils::dump_device_buffer<float>(sums[3]->get_data(),size/2+1,"harm4.bin");
-  */
+  
+  //Utils::dump_device_buffer<float>(pspec.get_data(),size/2+1,"harm0.bin");
+  //Utils::dump_device_buffer<float>(sums[0]->get_data(),size/2+1,"harm1.bin");
+  //Utils::dump_device_buffer<float>(sums[1]->get_data(),size/2+1,"harm2.bin");
+  //Utils::dump_device_buffer<float>(sums[2]->get_data(),size/2+1,"harm3.bin");
+  //Utils::dump_device_buffer<float>(sums[3]->get_data(),size/2+1,"harm4.bin");
+  
   
   SpectrumCandidates trial_cands(24.7,0,ii);
   cand_finder.find_candidates(pspec,trial_cands);
   cand_finder.find_candidates(sums,trial_cands);
-  accel_trial_cands.append(harm_finder.distill(trial_cands.cands));
-  }
+  trial_cands.print();
+  //accel_trial_cands.append(harm_finder.distill(trial_cands.cands));
+  //}
   //accel_trial_cands.print();
   AccelerationDistiller acc_still(tobs,0.0001);
   accel_trial_cands.cands = acc_still.distill(accel_trial_cands.cands);

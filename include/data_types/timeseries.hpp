@@ -177,6 +177,7 @@ public:
   unsigned int get_count(void){return count;}
   unsigned int get_nsamps(void){return nsamps;}
   void set_tsamp(float tsamp){this->tsamp = tsamp;}
+  float get_tsamp(void){return tsamp;}
 };
 
 //created through Dedisperser

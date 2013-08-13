@@ -1,3 +1,4 @@
+#pragma once
 #include <kernels/kernels.h>
 #include <kernels/defaults.h>
 #include <cmath>

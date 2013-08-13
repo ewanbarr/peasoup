@@ -37,7 +37,7 @@ public:
   virtual void set_fch1(float fch1){this->fch1 = fch1;}
   virtual float get_nchans(void){return nchans;}
   virtual void set_nchans(unsigned int nchans){this->nchans = nchans;}
-  virtual float get_nsamps(void){return nsamps;}
+  virtual unsigned int get_nsamps(void){return nsamps;}
   virtual void set_nsamps(unsigned int nsamps){this->nsamps = nsamps;}
   virtual float get_nbits(void){return nbits;}
   virtual void set_nbits(unsigned char nbits){this->nbits = nbits;}

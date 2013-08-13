@@ -1,16 +1,29 @@
+#pragma once
 #include <kernels/defaults.h>
 #include <kernels/kernels.h>
 #include <utils/exceptions.hpp>
 #include <utils/utils.hpp>
+#include <utils/stats.hpp>
 #include <data_types/folded.hpp>
+#include <data_types/candidates.hpp>
 #include <transforms/ffter.hpp>
 #include <algorithm>
 #include <numeric>
 #include <cmath>
+#include <map>
+#include <stdio.h>
 #include "cuda.h"
 #include "cufft.h"
 #include "cuComplex.h"
 #include <iostream>
+
+struct less_than_key
+{
+  inline bool operator() (const Candidate& x, const Candidate& y)
+  {
+    return (std::max(x.snr,x.folded_snr) > std::max(y.snr,y.folded_snr));
+  }
+};
 
 class TimeSeriesFolder {
 private:
@@ -163,10 +176,8 @@ private:
     std::transform(prof, prof+nbins, prof, std::bind2nd(std::divides<float>(),off_std));
     *sn2 = std::accumulate(prof,prof+nbins,0)/std::sqrt(width);
   }
-  
 
 public:
-
   FoldOptimiser(unsigned int nbins, unsigned int nints,
 		unsigned int max_blocks=MAX_BLOCKS,
 		unsigned int max_threads=MAX_THREADS)
@@ -218,6 +229,7 @@ public:
       ErrorChecker::throw_error("FoldedSubints instance has wrong dimensions");
     
     float* tmp = fold.get_data();
+
     device_real_to_complex(fold.get_data(),input_data,
 			   nbins*nints,max_blocks,max_threads);
 
@@ -248,7 +260,6 @@ public:
     cufftComplex* prof = shifted_profiles+nbins*opt_shift;
     inverse_fft_profile->execute(prof,prof,CUFFT_INVERSE);
     Utils::d2hcpy<cufftComplex>(opt_prof_complex,prof,nbins);
-
     
     for (int ii=0; ii<nbins; ii++)
       opt_prof[ii] = cuCabsf(opt_prof_complex[ii]);
@@ -267,3 +278,93 @@ public:
   }  
 };
 
+class MultiFolder {
+private:
+  std::vector<Candidate>& cands;
+  DispersionTrials<unsigned char>& dm_trials;
+  TimeDomainResampler resampler;
+  unsigned int nsamps;
+  float tsamp;
+  std::map< unsigned int, std::vector<unsigned int> > dm_to_cand_map;
+  
+  int compute_nbins(float period){
+    float nsamps_per_rot = period/tsamp;
+    int nbins;
+    if (nsamps_per_rot>64*2.0)
+      nbins = 64;
+    else if (nsamps_per_rot>32*2.0)
+      nbins = 32;
+    else if (nsamps_per_rot>16*2.0)
+      nbins = 16;
+    else if (nsamps_per_rot>8*2.0)
+      nbins = 8;
+    else
+      nbins = 0;
+    return nbins;
+  }
+  
+  int compute_nints(float period){
+    float nrots = nsamps*tsamp/period;
+    int nints;
+    if (nrots<16)
+      nints = (int) nrots;
+    else
+      nints = 16;
+    return nints;
+  }
+  
+  void fold_all_mapped(void){
+    std::map<unsigned int, std::vector<unsigned int> >::iterator iter;
+    ReusableDeviceTimeSeries<float,unsigned char> device_tim(nsamps);
+    DeviceTimeSeries<float> d_tim_r(nsamps);
+    
+    TimeDomainResampler resampler;
+    TimeSeriesFolder folder(nsamps);
+    int nbins,nints;
+    float period;
+    int cand_idx;
+    TimeSeries<unsigned char> h_tim;
+
+    for(iter = dm_to_cand_map.begin(); iter != dm_to_cand_map.end(); iter++)
+      {
+	h_tim = dm_trials[iter->first];
+        device_tim.copy_from_host(h_tim);
+	d_tim_r.set_tsamp(h_tim.get_tsamp());
+
+        for(int ii=0;ii<iter->second.size();ii++)
+          {
+            cand_idx = iter->second[ii];
+            period = 1.0/cands[cand_idx].freq;
+            if (period<0.001)
+              continue;
+            nints = compute_nints(period);
+            nbins = compute_nbins(period);
+            if (!nbins || !nints)
+              continue;
+	    FoldedSubints<float> folded_array(nbins,nints);
+            FoldOptimiser optimiser(nbins,nints);
+	    resampler.resample(device_tim,d_tim_r,nsamps,cands[cand_idx].acc);
+            folder.fold(d_tim_r,folded_array,period);
+	    optimiser.optimise(folded_array);
+            cands[cand_idx].folded_snr = folded_array.get_opt_sn();
+	    cands[cand_idx].opt_period = folded_array.get_opt_period();
+	  }
+      }
+  }
+
+public:
+  MultiFolder(std::vector<Candidate>& cands, DispersionTrials<unsigned char>& dm_trials)
+    :cands(cands),dm_trials(dm_trials){
+    nsamps = dm_trials.get_nsamps();
+    tsamp = dm_trials.get_tsamp();
+  }
+  
+  void fold_n(unsigned int n_to_fold){
+    int count = std::min(n_to_fold,(unsigned int) cands.size());
+    for (int ii=0;ii<count;ii++){
+      dm_to_cand_map[cands[ii].dm_idx].push_back(ii);
+    }
+    fold_all_mapped();
+    std::sort(cands.begin(),cands.end(),less_than_key());
+  }
+};
