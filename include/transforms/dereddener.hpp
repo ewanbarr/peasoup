@@ -59,8 +59,6 @@ public:
     
     linear_stretch(median_125,size/5/5/5,intermediate,size);
     Utils::d2dcpy(median+pos25,intermediate+pos25,size-pos25);
-
-    Utils::dump_device_buffer(median,size,"med.bin");
   }
   
   void deredden(DeviceFourierSeries<cufftComplex>& spectrum){

@@ -144,6 +144,7 @@ private:
   unsigned int nsamps;
   float tsamp;
   float cfreq;
+  float cfreq_GHz;
   float bw;
   float tsamp_us;
   float tobs;
@@ -158,9 +159,16 @@ public:
   {
     tsamp_us = 1.0e6 * tsamp;
     tobs = nsamps*tsamp;
+    cfreq_GHz = 1.0e-3 * cfreq;
   }
   
   void generate_accel_list(float dm,std::vector<float>& acc_list){
+    if (acc_hi==acc_lo){
+      acc_list.clear();
+      acc_list.push_back(0.0);
+      return;
+    }
+
     float tdm = pow(8.3*bw/pow(cfreq,3.0)*dm,2.0);
     float tpulse = pulse_width * pulse_width;
     float ttsamp = tsamp * tsamp;
@@ -168,13 +176,17 @@ public:
     float alt_a = 2.0 * w_us * 1.0e-6 * 24.0 * 299792458.0/tobs/tobs * sqrt((tol*tol)-1.0);
     unsigned int naccels = (unsigned int)((float)(acc_hi-acc_lo))/alt_a;
     acc_list.clear();
-    acc_list.reserve(naccels+2);
-    acc_list.push_back(0.0); //explicitly force zero acceleration.
+    acc_list.reserve(naccels+3);
+    if (acc_hi!=0 && acc_lo!=0)
+      acc_list.push_back(0.0); //explicitly force zero acceleration.
     float acc = acc_lo;
     while (acc<acc_hi){
       acc_list.push_back(acc);
       acc+=alt_a;
     }
+    acc_list.push_back(acc_hi);
     return;
   }
 };
+
+

@@ -16,6 +16,7 @@
 #include <utils/utils.hpp>
 #include <utils/stats.hpp>
 #include <utils/stopwatch.hpp>
+#include <utils/progress_bar.hpp>
 #include <tclap/CmdLine.h>
 #include <string>
 #include <iostream>
@@ -28,7 +29,7 @@
 
 struct CmdLineOptions {
   std::string infilename;
-  std::string outfilename;
+  std::string output_directory;
   std::string killfilename;
   std::string zapfilename;
   int max_num_threads;
@@ -50,6 +51,7 @@ struct CmdLineOptions {
   int max_harm;
   float freq_tol;
   bool verbose;
+  bool progress_bar;
 };
 
 class DMDispenser {
@@ -57,19 +59,37 @@ private:
   DispersionTrials<unsigned char>& trials;
   pthread_mutex_t mutex;
   int dm_idx;
+  int count;
+  ProgressBar* progress;
+  bool use_progress_bar;
 
 public:
   DMDispenser(DispersionTrials<unsigned char>& trials)
-    :trials(trials),dm_idx(0){
+    :trials(trials),dm_idx(0),use_progress_bar(false){
+    count = trials.get_count();
     pthread_mutex_init(&mutex, NULL);
   }
   
+  void enable_progress_bar(){
+    progress = new ProgressBar();
+    use_progress_bar = true;
+  }
+
   int get_dm_trial_idx(void){
     pthread_mutex_lock(&mutex);
     int retval;
+    if (dm_idx==0)
+      if (use_progress_bar){
+	printf("Releasing DMs to workers...\n");
+	progress->start();
+      }
     if (dm_idx >= trials.get_count()){
       retval =  -1;
+      if (use_progress_bar)
+	progress->stop();
     } else {
+      if (use_progress_bar)
+	progress->set_progress((float)dm_idx/count);
       retval = dm_idx;
       dm_idx++;
     }
@@ -78,6 +98,8 @@ public:
   }
   
   ~DMDispenser(){
+    if (use_progress_bar)
+      delete progress;
     pthread_mutex_destroy(&mutex);
   }
 };
@@ -236,10 +258,10 @@ int main(int argc, char **argv)
 						  "File to process (.fil)",
 						  true, "", "string", cmd);
       
-      TCLAP::ValueArg<std::string> arg_outfilename("o", "outputfile",
-						   "The output filename",
-						   false, "", "string",cmd);
-
+      TCLAP::ValueArg<std::string> arg_output_directory("o", "outputfile",
+							"The output filename",
+							false, "./", "string",cmd);
+      
       TCLAP::ValueArg<std::string> arg_killfilename("k", "killfile",
                                                    "Channel mask file",
                                                    false, "", "string",cmd);
@@ -248,51 +270,51 @@ int main(int argc, char **argv)
 						   "Birdie list file",
 						   false, "", "string",cmd);
 
-      TCLAP::ValueArg<int> arg_max_num_threads("c", "num_threads", 
+      TCLAP::ValueArg<int> arg_max_num_threads("t", "num_threads", 
 					       "The number of GPUs to use",
 					       false, 14, "int", cmd);
       
-      TCLAP::ValueArg<size_t> arg_size("x", "size",
+      TCLAP::ValueArg<size_t> arg_size("", "fft_size",
 				       "Transform size to use (defaults to lower power of two)",
 				       false, 0, "size_t", cmd);
       
-      TCLAP::ValueArg<float> arg_dm_start("s", "dm_start", 
+      TCLAP::ValueArg<float> arg_dm_start("", "dm_start", 
 					  "First DM to dedisperse to",
 					  false, 0.0, "float", cmd);
       
-      TCLAP::ValueArg<float> arg_dm_end("e", "dm_end",
+      TCLAP::ValueArg<float> arg_dm_end("", "dm_end",
 					"Last DM to dedisperse to",
 					false, 100.0, "float", cmd);
       
-      TCLAP::ValueArg<float> arg_dm_tol("t", "dm_tol",
+      TCLAP::ValueArg<float> arg_dm_tol("", "dm_tol",
 					"DM smearing tolerance (1.11=10%)",
 					false, 1.10, "float",cmd);
 
-      TCLAP::ValueArg<float> arg_dm_pulse_width("p", "dm_pulse_width",
+      TCLAP::ValueArg<float> arg_dm_pulse_width("", "dm_pulse_width",
 						"Minimum pulse width for which dm_tol is valid",
-						false, 0.4, "float (ms)",cmd);
+						false, 64.0, "float (us)",cmd);
 
-      TCLAP::ValueArg<float> arg_acc_start("S", "acc_start",
+      TCLAP::ValueArg<float> arg_acc_start("", "acc_start",
                                           "First acceleration to resample to",
                                           false, 0.0, "float", cmd);
 
-      TCLAP::ValueArg<float> arg_acc_end("E", "acc_end",
+      TCLAP::ValueArg<float> arg_acc_end("", "acc_end",
                                         "Last acceleration to resample to",
                                         false, 0.0, "float", cmd);
 
-      TCLAP::ValueArg<float> arg_acc_tol("T", "acc_tol",
+      TCLAP::ValueArg<float> arg_acc_tol("", "acc_tol",
                                         "Acceleration smearing tolerance (1.11=10%)",
                                         false, 1.10, "float",cmd);
 
-      TCLAP::ValueArg<float> arg_acc_pulse_width("P", "acc_pulse_width",
+      TCLAP::ValueArg<float> arg_acc_pulse_width("", "acc_pulse_width",
 						 "Minimum pulse width for which acc_tol is valid",
-                                                false, 0.4, "float (ms)",cmd);
+                                                false, 64.0, "float (ms)",cmd);
             
-      TCLAP::ValueArg<float> arg_boundary_5_freq("l", "boundary_5_freq",
+      TCLAP::ValueArg<float> arg_boundary_5_freq("", "boundary_5_freq",
 						 "Frequency at which to switch from median5 to median25",
 						 false, 0.05, "float", cmd);
       
-      TCLAP::ValueArg<float> arg_boundary_25_freq("a", "boundary_25_freq",
+      TCLAP::ValueArg<float> arg_boundary_25_freq("", "boundary_25_freq",
 						 "Frequency at which to switch from median25 to median125",
                                                  false, 0.5, "float", cmd);
       
@@ -304,27 +326,29 @@ int main(int argc, char **argv)
 					 "The minimum S/N for a candidate",
 					 false, 9.0, "float",cmd);
       
-      TCLAP::ValueArg<float> arg_min_freq("L", "min_freq",
+      TCLAP::ValueArg<float> arg_min_freq("", "min_freq",
 					  "Lowest Fourier freqency to consider",
 					  false, 0.1, "float",cmd);
       
-      TCLAP::ValueArg<float> arg_max_freq("H", "max_freq",
+      TCLAP::ValueArg<float> arg_max_freq("", "max_freq",
                                           "Highest Fourier freqency to consider",
                                           false, 1100.0, "float",cmd);
 
-      TCLAP::ValueArg<int> arg_max_harm("b", "max_harm",
+      TCLAP::ValueArg<int> arg_max_harm("", "max_harm_match",
 					"Maximum harmonic for related candidates",
-                                          false, 16, "float",cmd);
+					false, 16, "float",cmd);
       
-      TCLAP::ValueArg<float> arg_freq_tol("f", "freq_tol",
+      TCLAP::ValueArg<float> arg_freq_tol("", "freq_tol",
                                           "Tolerance for distilling frequencies (0.0001 = 0.01%)",
                                           false, 0.0001, "float",cmd);
-
+      
       TCLAP::SwitchArg arg_verbose("v", "verbose", "verbose mode", cmd);
       
+      TCLAP::SwitchArg arg_progress_bar("p", "progress_bar", "Enable progress bar for DM search", cmd);
+
       cmd.parse(argc, argv);
       args.infilename        = arg_infilename.getValue();
-      args.outfilename       = arg_outfilename.getValue();
+      args.output_directory  = arg_output_directory.getValue();
       args.killfilename      = arg_killfilename.getValue();
       args.zapfilename       = arg_zapfilename.getValue();
       args.max_num_threads   = arg_max_num_threads.getValue();
@@ -346,6 +370,7 @@ int main(int argc, char **argv)
       args.max_harm          = arg_max_harm.getValue();
       args.freq_tol          = arg_freq_tol.getValue();
       args.verbose           = arg_verbose.getValue();
+      args.progress_bar      = arg_progress_bar.getValue();
       
     }catch (TCLAP::ArgException &e) {
     std::cerr << "Error: " << e.error() << " for arg " << e.argId()
@@ -359,9 +384,19 @@ int main(int argc, char **argv)
   if (args.verbose)
     std::cout << "Using file: " << args.infilename << std::endl;
   std::string filename(args.infilename);
-  SigprocFilterbank filobj(filename);
-  Dedisperser dedisperser(filobj,nthreads);
 
+  Stopwatch timer;
+  if (args.progress_bar){
+    printf("Reading data from %s\n",args.infilename.c_str());
+    timer.start();
+  }
+  SigprocFilterbank filobj(filename);
+  if (args.progress_bar){
+    timer.stop();
+    printf("Complete (execution time %.2f s)\n",timer.getTime());
+  }
+
+  Dedisperser dedisperser(filobj,nthreads);
   if (args.killfilename!=""){
     if (args.verbose)
       std::cout << "Using killfile: " << args.killfilename << std::endl;
@@ -379,8 +414,17 @@ int main(int argc, char **argv)
       std::cout << dm_list[ii] << std::endl;
     std::cout << "Executing dedispersion" << std::endl;
   }
+
+  if (args.progress_bar){
+    printf("Starting dedispersion...\n");
+    timer.start();
+  }
   DispersionTrials<unsigned char> trials = dedisperser.dedisperse();
-  
+  if (args.progress_bar){
+    timer.stop();
+    printf("Complete (execution time %.2f s)\n",timer.getTime());
+  }
+
   unsigned int size;
   if (args.size==0)
     size = Utils::prev_power_of_two(filobj.get_nsamps());
@@ -398,6 +442,8 @@ int main(int argc, char **argv)
   std::vector<Worker*> workers(nthreads);
   std::vector<pthread_t> threads(nthreads);
   DMDispenser dispenser(trials);
+  if (args.progress_bar)
+    dispenser.enable_progress_bar();
   
   for (int ii=0;ii<nthreads;ii++){
     workers[ii] = (new Worker(trials,dispenser,acc_plan,args,size,ii));
@@ -420,9 +466,16 @@ int main(int argc, char **argv)
     std::cout << "Setting up time series folder" << std::endl;
   
   MultiFolder folder(dm_cands.cands,trials);
-  folder.fold_n(3000);
-  std::cout << "\n--------------\n" << std::endl;
-  dm_cands.print();
+  if (args.progress_bar)
+    folder.enable_progress_bar();
 
+  if (args.verbose)
+    std::cout << "Folding top 3000 cands" << std::endl;
+  folder.fold_n(3000);
+
+  if (args.verbose)
+    std::cout << "Writing output files" << std::endl;
+  dm_cands.generate_candidate_files(args.output_directory);
+  
   return 0;
 }

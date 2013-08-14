@@ -50,4 +50,4 @@ directories:
 	@mkdir -p ${OBJ_DIR}
 
 clean:
-	@rm -rf ${OBJ_DIR}/*.o
+	@rm -rf ${BIN_DIR}/*

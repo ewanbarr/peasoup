@@ -62,6 +62,21 @@ public:
     for (int ii=0;ii<cands.size();ii++)
       cands[ii].print(fo);
   }
+
+  void generate_candidate_files(std::string output_directory="./") {
+    char filename[80];    
+    std::stringstream filepath;
+
+    for (int ii=0;ii<cands.size();ii++){
+      filepath.str("");
+      sprintf(filename,"cand_%04d_%.5f_%.1f_%.1f.txt",
+	      ii,1.0/cands[ii].freq,cands[ii].dm,cands[ii].acc);
+      filepath << output_directory << "/" << filename;
+      FILE* fo = fopen(filepath.str().c_str(),"w");
+      cands[ii].print(fo);
+      fclose(fo);
+    }
+  }
 };
 
 
