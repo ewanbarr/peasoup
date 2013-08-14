@@ -43,6 +43,8 @@ public:
   virtual void set_nbits(unsigned char nbits){this->nbits = nbits;}
   virtual unsigned char* get_data(void){return this->data;}
   virtual void set_data(unsigned char *data){this->data = data;}
+  virtual float get_cfreq(void){return fch1+foff*nchans/2;}
+
 };
 
 

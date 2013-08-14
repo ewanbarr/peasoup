@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <vector>
+#include <sstream>
 #include "stdio.h"
 
 struct Candidate {
@@ -13,6 +14,11 @@ public:
   float freq;
   float folded_snr;
   float opt_period;
+  std::vector<Candidate> assoc;
+  
+  void append(Candidate& other){
+    assoc.push_back(other);
+  }
   
   Candidate(float dm, int dm_idx, float acc, int nh, float snr, float freq)
     :dm(dm),dm_idx(dm_idx),acc(acc),nh(nh),
@@ -22,9 +28,14 @@ public:
   Candidate(float dm, int dm_idx, float acc, int nh, float snr, float folded_snr, float freq)
     :dm(dm),dm_idx(dm_idx),acc(acc),nh(nh),snr(snr),
      folded_snr(folded_snr),freq(freq),opt_period(0.0){}
-
+  
   void print(FILE* fo=stdout){
-    fprintf(fo,"%.9f\t%.9f\t%.9f\t%.2f\t%.2f\t%d\t%.1f\t%.1f\n",1.0/freq,opt_period,freq,dm,acc,nh,snr,folded_snr);
+    fprintf(fo,"%.9f\t%.9f\t%.9f\t%.2f\t%.2f\t%d\t%.1f\t%.1f\n",
+	    1.0/freq,opt_period,freq,dm,acc,nh,snr,folded_snr);
+    
+    for (int ii=0;ii<assoc.size();ii++){
+      assoc[ii].print(fo);
+    }
   }
 
 };
@@ -70,18 +81,3 @@ public:
   }
 };
 
-class Event: public Candidate {
-public:
-  std::vector<Candidate>* cands; //for memory efficiency this is stored as a ptr.
-  
-  Event(Candidate fundamental)
-    :Candidate(fundamental){
-    cands = new std::vector<Candidate>;
-    cands->reserve(100);
-  }
-  
-  void append(Candidate& cand){
-    cands->push_back(cand);
-  }
-  
-};

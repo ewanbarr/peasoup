@@ -15,7 +15,7 @@ DEBUG    = -g
 
 # Includes and libraries
 INCLUDE  = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I${DEDISP_DIR}/include -I${CUDA_DIR}/include -I./tclap
-LIBS = -L$(CUDA_DIR)/lib64 -lcuda -lcudart -L${DEDISP_DIR}/lib -ldedisp -lcufft
+LIBS = -L$(CUDA_DIR)/lib64 -lcuda -lcudart -L${DEDISP_DIR}/lib -ldedisp -lcufft -lpthread
 
 # compiler flags
 NVCC_COMP_FLAGS = --compiler-options -Wall
@@ -30,7 +30,7 @@ all: directories ${OBJECTS} ${EXE_FILES}
 ${OBJ_DIR}/kernels.o: ${SRC_DIR}/kernels.cu
 	${NVCC} -c ${NVCCFLAGS} ${INCLUDE} $<  -o $@
 
-${BIN_DIR}/pipeline: ${SRC_DIR}/pipeline.cpp ${OBJECTS}
+${BIN_DIR}/pipeline: ${SRC_DIR}/pipeline_multi.cpp ${OBJECTS}
 	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
 
 ${BIN_DIR}/rednoise: ${SRC_DIR}/rednoise_test.cpp ${OBJECTS}

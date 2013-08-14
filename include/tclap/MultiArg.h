@@ -25,7 +25,7 @@
 
 #include <string>
 #include <vector>
-
+#include<cstdio>
 #include <tclap/Arg.h>
 #include <tclap/Constraint.h>
 

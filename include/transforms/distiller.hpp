@@ -17,9 +17,13 @@ class BaseDistiller {
 protected:
   std::vector<bool> unique;
   int size;
+  bool keep_related;
   virtual void condition(std::vector<Candidate>& cands, int idx){}
 
-public:
+  BaseDistiller(bool keep_related)
+    :keep_related(keep_related){}
+
+public:      
   std::vector<Candidate> distill(std::vector<Candidate>& cands)
   {
     size = cands.size();
@@ -41,8 +45,10 @@ public:
       }
       if (idx==-1)
         break;
-      count++;
-      condition(cands,idx);
+      else{
+	count++;
+	condition(cands,idx);
+      }
     }
     std::vector<Candidate> new_cands;
     new_cands.reserve(count);
@@ -70,20 +76,25 @@ private:
     for (ii=idx+1;ii<size;ii++){
       freq = cands[ii].freq;
       nh = cands[ii].nh;
-      for (jj=1;jj<=max_harm;jj++){
+      for (jj=1;jj<=this->max_harm;jj++){
         for (kk=1;kk<=pow(2.0,nh);kk++){
           ratio = kk*freq/(jj*fundi_freq);
           if (ratio>(lower_tol)&&ratio<(upper_tol)){
+	    if (keep_related)
+	      cands[idx].append(cands[ii]);
             unique[ii]=false;
           }
 	}
       }
     }
   }
+
+  
+
   
 public:
-  HarmonicDistiller(float tol, float max_harm)
-    :tolerance(tol),max_harm(max_harm){}
+  HarmonicDistiller(float tol, float max_harm, bool keep_related)
+    :BaseDistiller(keep_related),tolerance(tol),max_harm(max_harm){}
 };
 
 //Remove other candidates with lower S/N and equal or lower harmonic number
@@ -121,10 +132,14 @@ private:
       
       if (acc_freq>fundi_freq){
 	if (cands[ii].freq>fundi_freq-edge && cands[ii].freq<acc_freq+edge){
+	  if (keep_related)
+	    cands[idx].append(cands[ii]);
 	  unique[ii]=false;
 	}
       } else {
 	if (cands[ii].freq<fundi_freq+edge && cands[ii].freq>acc_freq-edge){
+	  if (keep_related)
+	    cands[idx].append(cands[ii]);
 	  unique[ii]=false;
 	}
       }
@@ -132,8 +147,8 @@ private:
   }
   
 public:
-  AccelerationDistiller(float tobs, float tolerance)
-    :tobs(tobs),tolerance(tolerance){
+  AccelerationDistiller(float tobs, float tolerance, bool keep_related)
+    :BaseDistiller(keep_related),tobs(tobs),tolerance(tolerance){
     tobs_over_c = tobs/SPEED_OF_LIGHT;
   }
 };
@@ -159,13 +174,15 @@ private:
       */
       ratio = cands[ii].freq/fundi_freq;
       if (ratio>(lower_tol)&&ratio<(upper_tol)){
+	if (keep_related)
+	  cands[idx].append(cands[ii]);
 	unique[ii]=false;
       }
     }
   }
   
 public:
-  DMDistiller(float tolerance)
-    :tolerance(tolerance){}
+  DMDistiller(float tolerance, bool keep_related)
+    :BaseDistiller(keep_related),tolerance(tolerance){}
 };
 

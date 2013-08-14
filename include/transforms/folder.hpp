@@ -271,6 +271,12 @@ public:
     
     float p = fold.get_period();
     float tobs = fold.get_tobs();
+    /*
+    char buf[80];
+    sprintf(buf,"prof_%.9f.bin\0",p);
+    Utils::dump_host_buffer<float>(opt_prof,nbins,std::string(buf));
+    */
+
     fold.set_opt_period(p*(((opt_shift*p)/(nbins*tobs))+1));
     fold.set_opt_width(opt_template+1);
     fold.set_opt_bin(opt_bin);

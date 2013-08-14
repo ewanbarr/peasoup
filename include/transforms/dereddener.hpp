@@ -51,11 +51,6 @@ public:
     median_scrunch5(median_5,size/5,median_25);
     median_scrunch5(median_25,size/5/5,median_125);
     
-    Utils::dump_device_buffer(median_5,size/5,"med5.bin");
-    Utils::dump_device_buffer(median_25,size/5/5,"med25.bin");
-    Utils::dump_device_buffer(median_125,size/5/5/5,"med125.bin");
-
-    
     linear_stretch(median_5,size/5,intermediate,size);
     Utils::d2dcpy(median,intermediate,pos5);
     

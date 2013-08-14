@@ -198,6 +198,15 @@ public:
     T* ptr = this->data_ptr+idx*this->nsamps;
     return DedispersedTimeSeries<T>(ptr, this->nsamps, this->tsamp, dm_list[idx]);
   }
+  
+  void get_idx(int idx, DedispersedTimeSeries<T>& tim){
+    T* ptr = this->data_ptr+idx*this->nsamps;
+    tim.set_data(ptr);
+    tim.set_dm(dm_list[idx]);
+    tim.set_nsamps(this->nsamps);
+    tim.set_tsamp(this->tsamp);
+  }
+  
   //DedispersedTimeSeries<T> nearest_dm(float dm){}
 };
 

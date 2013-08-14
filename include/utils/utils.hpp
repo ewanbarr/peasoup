@@ -4,6 +4,7 @@
 #include <string>
 #include <utils/exceptions.hpp>
 #include <fstream>
+#include <vector>
 
 class Utils {
 public:
@@ -79,6 +80,12 @@ public:
     infile.close();
   }
 
+  static int gpu_count(){
+    int count;
+    cudaGetDeviceCount(&count);
+    return count;
+  }
+
 };
 
 class Block {
@@ -125,5 +132,49 @@ public:
 
   Block& operator[](int idx){
     return output[idx];
+  }
+};
+
+class AccelerationPlan {
+private:
+  float acc_lo;
+  float acc_hi;
+  float tol;
+  float pulse_width;
+  unsigned int nsamps;
+  float tsamp;
+  float cfreq;
+  float bw;
+  float tsamp_us;
+  float tobs;
+
+public:
+  AccelerationPlan(float acc_lo, float acc_hi, float tol,
+		   float pulse_width, unsigned int nsamps,
+		   float tsamp, float cfreq, float bw)
+    :acc_lo(acc_lo),acc_hi(acc_hi),tol(tol),
+     pulse_width(pulse_width),nsamps(nsamps),
+     tsamp(tsamp),cfreq(cfreq),bw(fabs(bw))
+  {
+    tsamp_us = 1.0e6 * tsamp;
+    tobs = nsamps*tsamp;
+  }
+  
+  void generate_accel_list(float dm,std::vector<float>& acc_list){
+    float tdm = pow(8.3*bw/pow(cfreq,3.0)*dm,2.0);
+    float tpulse = pulse_width * pulse_width;
+    float ttsamp = tsamp * tsamp;
+    float w_us = sqrt(tdm+tpulse+ttsamp);
+    float alt_a = 2.0 * w_us * 1.0e-6 * 24.0 * 299792458.0/tobs/tobs * sqrt((tol*tol)-1.0);
+    unsigned int naccels = (unsigned int)((float)(acc_hi-acc_lo))/alt_a;
+    acc_list.clear();
+    acc_list.reserve(naccels+2);
+    acc_list.push_back(0.0); //explicitly force zero acceleration.
+    float acc = acc_lo;
+    while (acc<acc_hi){
+      acc_list.push_back(acc);
+      acc+=alt_a;
+    }
+    return;
   }
 };
