@@ -132,8 +132,9 @@ void device_form_power_series(cufftComplex* d_array_in, float* d_array_out,
         }
       if (way==0)
         power_series_kernel<<<MAX_BLOCKS,MAX_THREADS>>>(gulp_in_ptr,gulp_out_ptr,gulp_size);
-      if (way==1)
+      if (way==1){
         bin_interbin_series_kernel<<<MAX_BLOCKS,MAX_THREADS>>>(gulp_in_ptr,gulp_out_ptr,gulp_size);
+      }
       gulp_in_ptr = gulp_in_ptr + MAX_BLOCKS*MAX_THREADS;
       gulp_out_ptr = gulp_out_ptr + MAX_BLOCKS*MAX_THREADS;
     }
@@ -141,69 +142,6 @@ void device_form_power_series(cufftComplex* d_array_in, float* d_array_out,
 }
 
 //-----------------time domain resampling---------------//
-
-__global__
-void jstretch_kernel( float* d_odata, float* d_idata, int start_index, 
-		      int length, float a, float timestep)
-{
-  double T = timestep*((float)length-1.0);
-  double c = (double)299792458.0;
-  
-  double A = a/2.0;
-  double B = -(a*T/2.0+c);
-
-  double tobs;
-
-  double xmax = -a*T*T/8.0;
-  double dmax = (double)xmax/(double)c;
-
-
-  unsigned int index = start_index + blockIdx.x*blockDim.x + threadIdx.x;
-  if(index < length)
-    {
-      tobs = (double)index*timestep;
-      double C = a*T*T/8.0 + c*tobs;
-      float read_location;
-      read_location = (dmax + (-B - sqrt(B*B - 4.0*A*C))/(2.0*A))/timestep;
-      d_odata[index] = d_idata[(int)read_location] 
-	+(d_idata[1+(int)read_location] - d_idata[(int)read_location])
-	*(read_location - (int)read_location);
-    }
-}
-
-void device_resample_old(float * d_idata, float * d_odata, unsigned int length, 
-	      float a,float timestep,
-	      unsigned int block_size,
-	      unsigned int max_blocks)
-{
-  dim3 dimBlock(block_size, 1, 1);
-  int start_index;
-  int gulp_length;
-  start_index = 0;
-
-  while(start_index < (int)length)
-    {
-      if(length - start_index >= max_blocks*block_size)
-        {
-          gulp_length = max_blocks*block_size;
-        }
-      else
-        {
-          gulp_length = length - start_index;
-        }
-
-      int blocks = (gulp_length - 1)/block_size + 1;
-
-      dim3 dimGrid(blocks, 1, 1);
-
-      jstretch_kernel<<< dimGrid, dimBlock, 0 >>>(d_odata+start_index, 
-						  d_idata+start_index, 
-						  start_index, gulp_length,
-						  (float)a,(float)timestep);
-      start_index += gulp_length;
-    }
-}
-
 
 inline __device__ unsigned long getAcceleratedIndex(double accel_fact, double size_by_2, unsigned long id){
   return __double2ull_rn(id - accel_fact*( ((id-size_by_2)*(id-size_by_2)) - (size_by_2*size_by_2)));
@@ -223,8 +161,53 @@ __global__ void resample_kernel(float* input_d,
   output_d[idx] = input_d[idx_read];
 }
 
+/*
+inline __device__ double getAcceleratedIndex(double accel_fact, double size_by_2, unsigned long id){
+  return id - accel_fact*( ((id-size_by_2)*(id-size_by_2)) - (size_by_2*size_by_2));
+}
 
 
+//With interpolation
+__global__ void resample_kernel(float* input_d,
+                                float* output_d,
+                                double accel_fact,
+                                unsigned long size,
+                                double size_by_2,
+                                unsigned long start_idx)
+{
+  unsigned long idx = threadIdx.x + blockIdx.x * blockDim.x + start_idx;
+  if (idx>=size-1)
+    return;
+  double idx_read_frac = getAcceleratedIndex(accel_fact,size_by_2,idx);
+  unsigned long idx_read = __double2ull_rd(idx_read_frac);
+  double frac = idx_read_frac-idx_read;
+  output_d[idx] = input_d[idx_read]*(1.0-frac) + input_d[idx_read+1]*frac;
+}
+
+//Non cetralised stretch
+__global__ void GPU_resample_kernel(float *d_idata,float* d_odata, int size, float acc, double tsamp)
+{
+  double c = 2.99792458e8;
+  int Index = blockIdx.x * blockDim.x + threadIdx.x;
+  if (Index>=size-1)
+    return;
+  if (acc<=0.0) { // +ve acceleration                                                                                                       
+    double earthtime = Index * tsamp;
+    double delta = 0.5 * fabs(acc) * earthtime * earthtime/c/tsamp;
+    double ddelta = delta - (int) delta;
+    d_odata[Index]=d_idata[Index+(int)delta]*(1.0-ddelta)+
+      d_idata[Index+(int)delta+1]*ddelta;
+  }
+  if (acc>0.0){   // -ve acceleration                                                                                                            
+    double earthtime = Index * tsamp;
+    double delta = 0.5 * fabs(acc) * earthtime * earthtime/c/tsamp;
+    double ddelta = delta - (int) delta;
+    d_odata[Index] = d_idata[Index-(int)delta]*(ddelta)+
+      d_idata[Index-(int)delta+1]*(1.0-ddelta);
+  }
+  return;
+}
+*/
 
 void device_resample(float * d_idata, float * d_odata,
 		     unsigned int size, float a, 
@@ -243,6 +226,19 @@ void device_resample(float * d_idata, float * d_odata,
   ErrorChecker::check_cuda_error();
 }
 
+/*
+void device_resample(float * d_idata, float * d_odata,
+                     unsigned int size, float a,
+                     float tsamp, unsigned int max_threads,
+                     unsigned int max_blocks)
+{
+  BlockCalculator calc(size,max_blocks,max_threads);
+  for (int ii=0;ii<calc.size();ii++)
+    GPU_resample_kernel<<< calc[ii].blocks,max_threads >>>(d_idata, d_odata,
+							   (int) size, a, (double)tsamp);
+  ErrorChecker::check_cuda_error();
+}
+*/
 //------------------peak finding-----------------//
 //defined here as (although Thrust based) requires CUDA functors
 

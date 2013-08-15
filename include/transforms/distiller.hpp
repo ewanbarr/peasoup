@@ -64,6 +64,7 @@ class HarmonicDistiller: public BaseDistiller {
 private:
   float tolerance;
   float max_harm;
+  bool fractional_harms;
 
   void condition(std::vector<Candidate>& cands, int idx)
   {
@@ -73,11 +74,16 @@ private:
     float upper_tol = 1+tolerance;
     float lower_tol = 1-tolerance;
     float fundi_freq = cands[idx].freq;
+    float max_denominator;
     for (ii=idx+1;ii<size;ii++){
       freq = cands[ii].freq;
       nh = cands[ii].nh;
+      if (fractional_harms)
+	max_denominator = pow(2.0,nh);
+      else
+	max_denominator = 1;
       for (jj=1;jj<=this->max_harm;jj++){
-        for (kk=1;kk<=pow(2.0,nh);kk++){
+        for (kk=1;kk<=max_denominator;kk++){
           ratio = kk*freq/(jj*fundi_freq);
           if (ratio>(lower_tol)&&ratio<(upper_tol)){
 	    if (keep_related)
@@ -88,14 +94,12 @@ private:
       }
     }
   }
-
-  
-
   
 public:
-  HarmonicDistiller(float tol, float max_harm, bool keep_related)
-    :BaseDistiller(keep_related),tolerance(tol),max_harm(max_harm){}
+  HarmonicDistiller(float tol, float max_harm, bool keep_related, bool fractional_harms=true)
+    :BaseDistiller(keep_related),tolerance(tol),max_harm(max_harm),fractional_harms(fractional_harms){}
 };
+
 
 //Remove other candidates with lower S/N and equal or lower harmonic number
 //Use a user defined period tolerance, but calculate the delta f for the 
@@ -186,3 +190,22 @@ public:
     :BaseDistiller(keep_related),tolerance(tolerance){}
 };
 
+class CandidateTester {
+private:
+  float cfreq;
+  float tsamp;
+  float foff;
+
+  float get_dm_channel_delay(float dm){
+    return dm*8300*foff/pow(cfreq,3.0);
+  }
+
+public:
+  std::vector<Candidate> remove_non_physical_periods(std::vector<Candidate>& cands){
+    std::vector<Candidate> new_cands;
+    for (int ii=0;ii<cands.size();ii++){
+      if (1.0/cands[ii].freq < get_dm_channel_delay(cands[ii].dm))
+	new_cands.push_back(cands[ii]);
+    }
+  }
+};

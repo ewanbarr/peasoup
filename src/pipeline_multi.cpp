@@ -451,6 +451,7 @@ int main(int argc, char **argv)
   }
   
   DMDistiller dm_still(args.freq_tol,true);
+  HarmonicDistiller harm_still(0.001,args.max_harm,true,false);
   CandidateCollection dm_cands;
   for (int ii=0; ii<nthreads; ii++){
     pthread_join(threads[ii],NULL);
@@ -464,7 +465,9 @@ int main(int argc, char **argv)
 
   if (args.verbose)
     std::cout << "Setting up time series folder" << std::endl;
-  
+
+  dm_cands.cands = harm_still.distill(dm_cands.cands);
+
   MultiFolder folder(dm_cands.cands,trials);
   if (args.progress_bar)
     folder.enable_progress_bar();

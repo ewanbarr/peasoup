@@ -8,14 +8,17 @@ void* progress_printer(void* progress_){
 
   float* progress = (float*) progress_;
   float val;
+  float prev = 0.0;
   int eta;
   Stopwatch timer;
   float current_time;
   timer.start();
-
+  printf("Estimated time to completion: --- s  (0.0%% completed)        \r");
+  fflush(stdout);
   while (true){
     usleep(100000);
     val = *progress;
+
     if (val<0){
       printf("\nComplete (execution time %.2f s)\n",timer.getTime());
       fflush(stdout);
@@ -23,15 +26,19 @@ void* progress_printer(void* progress_){
       timer.stop();
       break;
     }
-    if (val<=0){
-      eta = 0;
-    } else {
-      current_time = timer.getTime();
-      eta = current_time/(val)-current_time;
-    }
+    
+    if (val==prev){
+      continue;
+    } 
+    
+    current_time = timer.getTime();
+    eta = current_time/(val)-current_time;
+    fflush(stdout);
     printf("Estimated time to completion: %d s  (%.2f%% completed)        \r",
 	   eta,val*100.0);
     fflush(stdout);
+    usleep(100000);
+    prev = val;
   }
 }
 
