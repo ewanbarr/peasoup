@@ -160,10 +160,11 @@ public:
 	std::cout << "Copying DM trial to device (DM: " << tim.get_dm() << ")"<< std::endl;
       d_tim.copy_from_host(tim);
       
+      
       if (args.verbose)
 	std::cout << "Generating accelration list" << std::endl;
       acc_plan.generate_accel_list(tim.get_dm(),acc_list);
-
+      
       if (args.verbose)
 	std::cout << "Executing forward FFT" << std::endl;
       r2cfft.execute(d_tim.get_data(),d_fseries.get_data());
@@ -197,7 +198,7 @@ public:
       if (args.verbose)
 	std::cout << "Executing inverse FFT" << std::endl;
       c2rfft.execute(d_fseries.get_data(),d_tim.get_data());
-
+      
       CandidateCollection accel_trial_cands;    
       for (int jj=0;jj<acc_list.size();jj++){
 	if (args.verbose)
@@ -214,6 +215,7 @@ public:
 
 	if (args.verbose)
 	  std::cout << "Normalise power spectrum" << std::endl;
+	
 	stats::normalise(pspec.get_data(),mean*size,std*size,size/2+1);
 
 	if (args.verbose)
@@ -225,7 +227,7 @@ public:
 	SpectrumCandidates trial_cands(tim.get_dm(),ii,acc_list[jj]);
 	cand_finder.find_candidates(pspec,trial_cands);
 	cand_finder.find_candidates(sums,trial_cands);
-
+	
 	if (args.verbose)
 	  std::cout << "Distilling harmonics" << std::endl;
 	accel_trial_cands.append(harm_finder.distill(trial_cands.cands));
@@ -458,6 +460,7 @@ int main(int argc, char **argv)
     dm_cands.append(workers[ii]->dm_trial_cands.cands);
   }
   
+  //dm_cands.print();
   if (args.verbose)
     std::cout << "Distilling DMs" << std::endl;
   dm_cands.cands = dm_still.distill(dm_cands.cands);
@@ -478,7 +481,7 @@ int main(int argc, char **argv)
 
   if (args.verbose)
     std::cout << "Writing output files" << std::endl;
-  dm_cands.generate_candidate_files(args.output_directory);
+  dm_cands.write_candidate_file(args.output_directory);
   
   return 0;
 }

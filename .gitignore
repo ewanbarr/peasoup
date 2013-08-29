@@ -2,6 +2,8 @@
 *~
 unit_tests/
 bin/
+tools/
+obj/
 
 # Compiled Object files
 *.slo

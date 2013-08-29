@@ -4,6 +4,7 @@
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include "utils/exceptions.hpp"
+#include "utils/utils.hpp"
 #include <data_types/header.hpp>
 #include <string>
 
@@ -178,6 +179,7 @@ public:
   unsigned int get_nsamps(void){return nsamps;}
   void set_tsamp(float tsamp){this->tsamp = tsamp;}
   float get_tsamp(void){return tsamp;}
+  T* get_data(void){return data_ptr;}
 };
 
 //created through Dedisperser
@@ -195,19 +197,17 @@ public:
   
   DedispersedTimeSeries<T> operator[](int idx)
   {
-    T* ptr = this->data_ptr+idx*this->nsamps;
+    T* ptr = this->data_ptr+idx*(size_t)this->nsamps;
     return DedispersedTimeSeries<T>(ptr, this->nsamps, this->tsamp, dm_list[idx]);
   }
   
-  void get_idx(int idx, DedispersedTimeSeries<T>& tim){
-    T* ptr = this->data_ptr+idx*this->nsamps;
+  void get_idx(unsigned int idx, DedispersedTimeSeries<T>& tim){
+    T* ptr = this->data_ptr+(size_t)idx*(size_t)this->nsamps;
     tim.set_data(ptr);
     tim.set_dm(dm_list[idx]);
     tim.set_nsamps(this->nsamps);
     tim.set_tsamp(this->tsamp);
   }
-  
-  //DedispersedTimeSeries<T> nearest_dm(float dm){}
 };
 
 

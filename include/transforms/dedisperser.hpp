@@ -76,13 +76,16 @@ public:
     infile.open(filename.c_str(),std::ifstream::in | std::ifstream::binary);
     ErrorChecker::check_file_error(infile,filename);
     
-    while(!infile.eof()){
+    int ii=0;
+    while(!infile.eof()&&ii<filterbank.get_nchans()){
       std::getline(infile, str);
       killmask.push_back(std::atoi(str.c_str()));
+      ii++;
     }
     
     if (killmask.size() != filterbank.get_nchans()){
       std::cerr << "WARNING: killmask is not the same size as nchans" << std::endl;
+      std::cerr << killmask.size() <<" != " <<  filterbank.get_nchans() <<  std::endl;
       killmask.resize(filterbank.get_nchans(),1);
     } else {
       dedisp_error error = dedisp_set_killmask(plan,&killmask[0]);

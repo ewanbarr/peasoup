@@ -1,3 +1,4 @@
+#pragma once
 #include <data_types/fourierseries.hpp>
 #include <kernels/kernels.h>
 

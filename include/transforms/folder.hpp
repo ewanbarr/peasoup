@@ -7,7 +7,11 @@
 #include <utils/progress_bar.hpp>
 #include <data_types/folded.hpp>
 #include <data_types/candidates.hpp>
+#include <transforms/dereddener.hpp>
+#include <transforms/spectrumformer.hpp>
 #include <transforms/ffter.hpp>
+#include <transforms/resampler.hpp>
+#include <data_types/fourierseries.hpp>
 #include <algorithm>
 #include <numeric>
 #include <cmath>
@@ -139,8 +143,7 @@ private:
 				nshifts, shift_mags,
 				max_blocks, max_threads);
   }
-
-  
+    
   void calculate_sn(float* prof, int bin, 
 		    unsigned int width, 
 		    unsigned int nbins,
@@ -269,15 +272,15 @@ public:
     float sn2 = 0;
     calculate_sn(opt_prof, opt_bin, opt_template+1, nbins, &sn1, &sn2);
     fold.set_opt_sn(std::max(sn1,sn2));
-    
     float p = fold.get_period();
     float tobs = fold.get_tobs();
+    
     /*
     char buf[80];
-    sprintf(buf,"prof_%.9f.bin\0",p);
+    sprintf(buf,"prof_%.9f_%d.bin\0",p,nbins);
     Utils::dump_host_buffer<float>(opt_prof,nbins,std::string(buf));
     */
-
+    
     fold.set_opt_period(p*(((opt_shift*p)/(nbins*tobs))+1));
     fold.set_opt_width(opt_template+1);
     fold.set_opt_bin(opt_bin);
@@ -299,39 +302,26 @@ private:
   ProgressBar* progress_bar;
 
   void map_instances(void){
-    int nbins[] = {8,16,32,64};
-    for (int ii=0;ii<4;ii++){
+    int nbins[] = {64};
+    for (int ii=0;ii<1;ii++){
       nbins_to_subints_map[nbins[ii]] = new FoldedSubints<float>(nbins[ii],16);
       nbins_to_optimiser_map[nbins[ii]] = new FoldOptimiser(nbins[ii],16);
     }
   }
   
   void delete_instances(void){
-    int nbins[] = {8,16,32,64};
-    for (int ii=0;ii<4;ii++){
+    int nbins[] = {64};
+    for (int ii=0;ii<1;ii++){
       delete nbins_to_subints_map[nbins[ii]];
       delete nbins_to_optimiser_map[nbins[ii]];
     }
   }
 
   int compute_nbins(float period){
-    float nsamps_per_rot = period/tsamp;
-    int nbins;
-    if (nsamps_per_rot>64*2.0){
-      nbins = 64;
-    }
-    else if (nsamps_per_rot>32*2.0){
-      nbins = 32;
-    }
-    else if (nsamps_per_rot>16*2.0){
-      nbins = 16;
-    }
-    else if (nsamps_per_rot>8*2.0){
-      nbins = 8;
-    }
+    if (period < 0.0005)
+      return 0;
     else
-      nbins = 0;
-    return nbins;
+      return 64;
   }
   
   int compute_nints(float period){
@@ -348,51 +338,67 @@ private:
     std::map<unsigned int, std::vector<unsigned int> >::iterator iter;
     ReusableDeviceTimeSeries<float,unsigned char> device_tim(nsamps);
     DeviceTimeSeries<float> d_tim_r(nsamps);
-    
+    Dereddener rednoise(nsamps/2+1);
     TimeDomainResampler resampler;
-    TimeSeriesFolder folder(nsamps);
+    SpectrumFormer former;
+    float tobs = nsamps*tsamp;
+    CuFFTerR2C r2cfft(nsamps);
+    CuFFTerC2R c2rfft(nsamps);
+    DeviceFourierSeries<cufftComplex> d_fseries(nsamps/2+1,1.0/tobs);
+    DevicePowerSpectrum<float> pspec(d_fseries);
+    TimeSeriesFolder folder(nsamps*8);
     int nbins,nints;
     float period;
     int cand_idx;
     TimeSeries<unsigned char> h_tim;
+    float mean,std,rms;
 
-    if (use_progress_bar)
+    if (use_progress_bar){
       printf("Folding and optimising candidates...\n");
-    progress_bar->start();
-
+      progress_bar->start();
+    }
+    
     for(iter = dm_to_cand_map.begin(); iter != dm_to_cand_map.end(); iter++)
       {
 	if (use_progress_bar)
 	  progress_bar->set_progress((float)std::distance(dm_to_cand_map.begin(),iter)/dm_to_cand_map.size());
 	
+	mean = std = rms = 0.0;
 	h_tim = dm_trials[iter->first];
         device_tim.copy_from_host(h_tim);
 	d_tim_r.set_tsamp(h_tim.get_tsamp());
-
+	
+	r2cfft.execute(device_tim.get_data(),d_fseries.get_data());
+	former.form(d_fseries,pspec);
+	rednoise.calculate_median(pspec);
+	rednoise.deredden(d_fseries);
+	c2rfft.execute(d_fseries.get_data(),device_tim.get_data());
         for(int ii=0;ii<iter->second.size();ii++)
           {
             cand_idx = iter->second[ii];
             period = 1.0/cands[cand_idx].freq;
-            if (period<0.001)
+            if (period<0.001 | period > 10)
               continue;
             nints = compute_nints(period);
-            nbins = compute_nbins(period);
+            nbins = 64;
             if (!nbins || !nints)
               continue;
+	    
 	    resampler.resample(device_tim,d_tim_r,nsamps,cands[cand_idx].acc);
-            folder.fold(d_tim_r,*nbins_to_subints_map[nbins],period);
+	    folder.fold(d_tim_r,*nbins_to_subints_map[nbins],period);
 	    nbins_to_optimiser_map[nbins]->optimise(*nbins_to_subints_map[nbins]);
-            cands[cand_idx].folded_snr = nbins_to_subints_map[nbins]->get_opt_sn();
+	    cands[cand_idx].folded_snr = nbins_to_subints_map[nbins]->get_opt_sn();
 	    cands[cand_idx].opt_period = nbins_to_subints_map[nbins]->get_opt_period();
 	  }
       }
-    progress_bar->stop();
+    if (use_progress_bar)
+      progress_bar->stop();
   }
 
 public:
   MultiFolder(std::vector<Candidate>& cands, DispersionTrials<unsigned char>& dm_trials)
     :cands(cands),dm_trials(dm_trials),use_progress_bar(false){
-    nsamps = dm_trials.get_nsamps();
+    nsamps = Utils::prev_power_of_two(dm_trials.get_nsamps());
     tsamp = dm_trials.get_tsamp();
     map_instances();
   }

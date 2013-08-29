@@ -73,6 +73,8 @@ void device_harmonic_sum(float* d_input_array, float* d_output_array,
 
 //------------spectrum forming--------------//
 
+
+//Bad terminology, this forms the amplitudes
 __global__ 
 void power_series_kernel(cufftComplex *d_idata,float* d_odata, int size)
 {
@@ -81,7 +83,7 @@ void power_series_kernel(cufftComplex *d_idata,float* d_odata, int size)
   if(Index<size)
     {
       d_odata[Index] = sqrtf(d_idata_float[2*Index]*d_idata_float[2*Index]
-                             + d_idata_float[2*Index+1]*d_idata_float[2*Index+1]);
+			     + d_idata_float[2*Index+1]*d_idata_float[2*Index+1]);
     }
   return;
 }
@@ -103,7 +105,7 @@ __global__ void bin_interbin_series_kernel(cufftComplex *d_idata,float* d_odata,
       float ampsq = re*re+im*im;
       float ampsq_diff = 0.5*((re-re_l)*(re-re_l) +
                               (im-im_l)*(im-im_l));
-      d_odata[Index] = sqrt(max(ampsq,ampsq_diff));
+      d_odata[Index] = sqrtf(max(ampsq,ampsq_diff));
     }
   return;
 }
@@ -386,12 +388,16 @@ void rebin_time_series_kernel(float* i_data, float* o_data,
     return;
   int start_idx = __float2int_rn(idx*period/(tsamp*nbins));
   int end_idx = __float2int_rn((idx+1)*period/(tsamp*nbins));
-  for (ii=start_idx;ii<end_idx;ii++)
-    {
-      val+=i_data[ii];
-      count++;
-    }
-  o_data[idx] = val/count;
+  if (start_idx==end_idx){
+    o_data[idx] = i_data[start_idx];
+  } else {
+    for (ii=start_idx;ii<=end_idx;ii++)
+      {
+        val+=i_data[ii];
+        count++;
+      }
+    o_data[idx] = val/count;
+  }
 }
 
 

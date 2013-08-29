@@ -61,7 +61,7 @@ public:
   }
 
   template <class T>
-  static void dump_device_buffer(T* buffer, unsigned int size, std::string filename){
+  static void dump_device_buffer(T* buffer, size_t size, std::string filename){
     T* host_ptr;
     host_malloc<T>(&host_ptr,size);
     d2hcpy(host_ptr,buffer,size);
@@ -73,7 +73,7 @@ public:
   }
 
   template <class T>
-  static void dump_host_buffer(T* buffer, unsigned int size, std::string filename){
+  static void dump_host_buffer(T* buffer, size_t size, std::string filename){
     std::ofstream infile;
     infile.open(filename.c_str(),std::ifstream::out | std::ifstream::binary);
     infile.write((char*)buffer ,size*sizeof(T));

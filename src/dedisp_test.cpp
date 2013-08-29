@@ -17,20 +17,43 @@
 
 int main(void)
 {
-  std::string filename("/lustre/projects/p002_swin/surveys/HTRU/medlat/2009-09-12-01:41:41/11/2009-09-12-01:41:41.fil");
+  std::string filename("/lustre/projects/p002_swin/cflynn/products/linear/ewan2/2009-09-11-04:46:11/07/2009-09-11-04:46:11.fil");
 
   std::cout << "Creating filterbank object" << std::endl;
   SigprocFilterbank filobj(filename);
 
   std::cout << "Creating dedisperser object" << std::endl;
-  Dedisperser dedisperser(filobj,2);
+  Dedisperser dedisperser(filobj,7);
   
   std::cout << "Generating a DM list" << std::endl;
-  dedisperser.generate_dm_list(0,10.0,0.4,1.1);
+  dedisperser.generate_dm_list(50.0,400.0,40.0,1.05);
   
-  std::cout << "Executing dedisperse" << std::endl;
+  std::vector<float> dm_list = dedisperser.get_dm_list();
+  std::cout << dm_list.size() << " DM trials" << std::endl;
+  for (int ii=0;ii<dm_list.size();ii++)
+    std::cout << ii << "\t" << dm_list[ii] << std::endl;
+  std::cout << "Executing dedispersion" << std::endl;
+
   DispersionTrials<unsigned char> trials = dedisperser.dedisperse();
+  std::cout << trials.get_nsamps() << std::endl;
+  std::cout << trials.get_count() << std::endl;
+  size_t ntrials = trials.get_count();
+  size_t nsamps = trials.get_nsamps();
+
+  Utils::dump_host_buffer<unsigned char>(trials.get_data(),nsamps*ntrials,"/lustre/projects/p002_swin/ebarr/GPUSEEK_TESTS/dedispersed_tim_dump.bin");
+
+  unsigned int fft_size = Utils::prev_power_of_two(filobj.get_nsamps());
+  DedispersedTimeSeries<unsigned char> tim;
+  trials.get_idx(958,tim);
+
+  Utils::dump_host_buffer<unsigned char>(trials.get_data()+nsamps*958,nsamps,
+					 "/lustre/projects/p002_swin/ebarr/GPUSEEK_TESTS/manual_extraction_tim.bin");
+
+  Utils::dump_host_buffer<unsigned char>(tim.get_data(),fft_size,"/lustre/projects/p002_swin/ebarr/GPUSEEK_TESTS/extracted_tim.bin");
   
+
+  
+    /*
   unsigned int fft_size = Utils::prev_power_of_two(filobj.get_nsamps());
   std::cout << "Setting FFT size to " << fft_size << " points" << std::endl;
 
@@ -73,5 +96,6 @@ int main(void)
     std::cout << "Summing harmonics" << std::endl;
     harm_folder.fold(d_pspec,sums);
   }
+    */
   return 0;
 }

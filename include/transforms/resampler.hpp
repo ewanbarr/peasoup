@@ -1,3 +1,4 @@
+#pragma once
 #include <data_types/timeseries.hpp>
 #include <kernels/kernels.h>
 #include <kernels/defaults.h>

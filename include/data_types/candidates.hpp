@@ -77,6 +77,18 @@ public:
       fclose(fo);
     }
   }
+  
+  void write_candidate_file(std::string output_directory="./",std::string filename="candidates.txt") {
+    std::stringstream filepath;
+    filepath << output_directory << "/" << filename;
+    FILE* fo = fopen(filepath.str().c_str(),"w");
+    fprintf(fo,"#Period...Optimal period...Frequency...DM...Acceleration...Harmonic number...S/N...Folded S/N\n");
+    for (int ii=0;ii<cands.size();ii++){
+      cands[ii].print(fo);
+      fprintf(fo,"#Candidate %d\n",ii);
+    }
+    fclose(fo);
+  }
 };
 
 
