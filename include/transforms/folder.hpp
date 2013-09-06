@@ -35,7 +35,6 @@ private:
   unsigned int size;
   unsigned int max_blocks;
   unsigned int max_threads;
-  //float* rebin_buffer;
     
 public:
   float* rebin_buffer;
@@ -44,8 +43,7 @@ public:
 		   unsigned int max_threads=MAX_THREADS)
     :size(size),max_blocks(max_blocks),max_threads(max_threads)
   {
-    cudaError_t error = cudaMalloc((void**)&rebin_buffer, sizeof(float)*size);
-    ErrorChecker::check_cuda_error(error);
+    Utils::device_malloc<float>(&rebin_buffer,size);
   }
 
   void fold(DeviceTimeSeries<float>& input,FoldedSubints<float>& output, float period)
@@ -63,12 +61,19 @@ public:
 			     period, input.get_tsamp(), 
 			     input.get_nsamps(),rebinned_size,
 			     nbins,max_blocks,max_threads);
-   
+    /*
+    char buf[80];
+    sprintf(buf,"/lustre/projects/p002_swin/ebarr/GPUSEEK_TESTS/tim_%.9f_%d.bin\0",period,nbins);
+    Utils::dump_device_buffer<float>(rebin_buffer,rebinned_size,std::string(buf));
+    */
+    
     device_create_subints(rebin_buffer, output.get_data(), nbins,
 			  nbins*nints, nrots_per_subint, 
 			  max_blocks,max_threads);
-
-    ErrorChecker::check_cuda_error(cudaDeviceSynchronize());
+    /*
+    sprintf(buf,"/lustre/projects/p002_swin/ebarr/GPUSEEK_TESTS/ints_%.9f_%d.bin\0",period,nbins);
+    Utils::dump_device_buffer<float>(output.get_data(),nbins*nints,std::string(buf));
+    */
   }
 };
 
@@ -169,8 +174,8 @@ private:
       onpulse[ii] = prof[(start+ii+edge)%nbins];
     for(ii=0;ii<op_width_t;ii++)
       offpulse[ii] = prof[(start+ii+width+edge)%nbins];
-    float on_mean  = std::accumulate(onpulse,onpulse+width_t,0)/width_t;
-    float off_mean = std::accumulate(offpulse,offpulse+op_width_t,0)/op_width_t;
+    float on_mean  = std::accumulate(onpulse,onpulse+width_t,0.0)/width_t;
+    float off_mean = std::accumulate(offpulse,offpulse+op_width_t,0.0)/op_width_t;
     float acc = 0;
     for (ii=0;ii<op_width_t;ii++)
       acc += std::pow(offpulse[ii]-off_mean,2.0);
@@ -178,7 +183,9 @@ private:
     *sn1 = (on_mean-off_mean) * std::sqrt(width)/off_std;
     std::transform(prof, prof+nbins, prof, std::bind2nd(std::minus<float>(),off_mean));
     std::transform(prof, prof+nbins, prof, std::bind2nd(std::divides<float>(),off_std));
-    *sn2 = std::accumulate(prof,prof+nbins,0)/std::sqrt(width);
+    *sn2 = std::accumulate(prof,prof+nbins,0.0)/std::sqrt(width);
+    Utils::host_free(onpulse);
+    Utils::host_free(offpulse);
   }
 
 public:
@@ -206,7 +213,6 @@ public:
 
   ~FoldOptimiser()
   {
-
     Utils::device_free(shift_mags);
     Utils::device_free(templates);
     Utils::device_free(shiftar);
@@ -233,30 +239,21 @@ public:
       ErrorChecker::throw_error("FoldedSubints instance has wrong dimensions");
     
     float* tmp = fold.get_data();
-
     device_real_to_complex(fold.get_data(),input_data,
 			   nbins*nints,max_blocks,max_threads);
-
     forward_fft->execute(input_data,input_data,CUFFT_FORWARD);
-
-    
     device_multiply_by_shift(input_data, post_shift_input,
 			     shiftar, nbins*nints*nshifts,
 			     nbins*nints, max_blocks, max_threads);
-    
     device_collapse_subints(post_shift_input,shifted_profiles,nbins,
 			    nints,nbins*nshifts,max_blocks,max_threads);
-    
     device_multiply_by_templates(shifted_profiles, final_array_complex, templates,
 				 nbins, nshifts, nshifts*nbins*ntemplates,
 				 1,max_blocks,max_threads);
-    
     inverse_fft->execute(final_array_complex,final_array_complex,CUFFT_INVERSE);
-    
     device_get_absolute_value(final_array_complex,final_array_float,
 			      nshifts*nbins*ntemplates,
 			      max_blocks,max_threads);
-    
     int argmax = device_argmax(final_array_float,nshifts*nbins*ntemplates);
     unsigned int opt_template = argmax/(nbins*nshifts);
     int opt_bin = argmax%nbins-opt_template/2;
@@ -279,6 +276,7 @@ public:
     char buf[80];
     sprintf(buf,"prof_%.9f_%d.bin\0",p,nbins);
     Utils::dump_host_buffer<float>(opt_prof,nbins,std::string(buf));
+    printf("prof_%.9f_%d.bin w:%d   sn1:%f   sn2:%f\n",p,nbins,opt_template+1,sn1,sn2);
     */
     
     fold.set_opt_period(p*(((opt_shift*p)/(nbins*tobs))+1));
@@ -296,44 +294,13 @@ private:
   unsigned int nsamps;
   float tsamp;
   std::map< unsigned int, std::vector<unsigned int> > dm_to_cand_map;
-  std::map< int, FoldedSubints<float>* > nbins_to_subints_map;
-  std::map< int, FoldOptimiser* > nbins_to_optimiser_map;
+  FoldedSubints<float>* subints;
+  FoldOptimiser* optimiser;
+  float min_period;
+  float max_period;
   bool use_progress_bar;
   ProgressBar* progress_bar;
 
-  void map_instances(void){
-    int nbins[] = {64};
-    for (int ii=0;ii<1;ii++){
-      nbins_to_subints_map[nbins[ii]] = new FoldedSubints<float>(nbins[ii],16);
-      nbins_to_optimiser_map[nbins[ii]] = new FoldOptimiser(nbins[ii],16);
-    }
-  }
-  
-  void delete_instances(void){
-    int nbins[] = {64};
-    for (int ii=0;ii<1;ii++){
-      delete nbins_to_subints_map[nbins[ii]];
-      delete nbins_to_optimiser_map[nbins[ii]];
-    }
-  }
-
-  int compute_nbins(float period){
-    if (period < 0.0005)
-      return 0;
-    else
-      return 64;
-  }
-  
-  int compute_nints(float period){
-    float nrots = nsamps*tsamp/period;
-    int nints;
-    if (nrots<16)
-      nints = 0;
-    else
-      nints = 16;
-    return nints;
-  }
-  
   void fold_all_mapped(void){
     std::map<unsigned int, std::vector<unsigned int> >::iterator iter;
     ReusableDeviceTimeSeries<float,unsigned char> device_tim(nsamps);
@@ -346,8 +313,11 @@ private:
     CuFFTerC2R c2rfft(nsamps);
     DeviceFourierSeries<cufftComplex> d_fseries(nsamps/2+1,1.0/tobs);
     DevicePowerSpectrum<float> pspec(d_fseries);
-    TimeSeriesFolder folder(nsamps*8);
-    int nbins,nints;
+    int nbins = 64;
+    int nints = 16;
+    float min_period = 0.00099;
+    float stretch = tsamp/(min_period/64);
+    TimeSeriesFolder folder(nsamps*stretch);
     float period;
     int cand_idx;
     TimeSeries<unsigned char> h_tim;
@@ -357,38 +327,32 @@ private:
       printf("Folding and optimising candidates...\n");
       progress_bar->start();
     }
-    
     for(iter = dm_to_cand_map.begin(); iter != dm_to_cand_map.end(); iter++)
       {
 	if (use_progress_bar)
 	  progress_bar->set_progress((float)std::distance(dm_to_cand_map.begin(),iter)/dm_to_cand_map.size());
-	
 	mean = std = rms = 0.0;
+	
 	h_tim = dm_trials[iter->first];
         device_tim.copy_from_host(h_tim);
 	d_tim_r.set_tsamp(h_tim.get_tsamp());
-	
 	r2cfft.execute(device_tim.get_data(),d_fseries.get_data());
 	former.form(d_fseries,pspec);
 	rednoise.calculate_median(pspec);
 	rednoise.deredden(d_fseries);
 	c2rfft.execute(d_fseries.get_data(),device_tim.get_data());
-        for(int ii=0;ii<iter->second.size();ii++)
+        
+	for(int ii=0;ii<iter->second.size();ii++)
           {
+	    
             cand_idx = iter->second[ii];
             period = 1.0/cands[cand_idx].freq;
-            if (period<0.001 | period > 10)
-              continue;
-            nints = compute_nints(period);
-            nbins = 64;
-            if (!nbins || !nints)
-              continue;
-	    
 	    resampler.resample(device_tim,d_tim_r,nsamps,cands[cand_idx].acc);
-	    folder.fold(d_tim_r,*nbins_to_subints_map[nbins],period);
-	    nbins_to_optimiser_map[nbins]->optimise(*nbins_to_subints_map[nbins]);
-	    cands[cand_idx].folded_snr = nbins_to_subints_map[nbins]->get_opt_sn();
-	    cands[cand_idx].opt_period = nbins_to_subints_map[nbins]->get_opt_period();
+	    folder.fold(d_tim_r,*subints,period);
+	    optimiser->optimise(*subints);
+	    cands[cand_idx].folded_snr = subints->get_opt_sn();
+	    
+	    cands[cand_idx].opt_period = subints->get_opt_period();
 	  }
       }
     if (use_progress_bar)
@@ -400,7 +364,10 @@ public:
     :cands(cands),dm_trials(dm_trials),use_progress_bar(false){
     nsamps = Utils::prev_power_of_two(dm_trials.get_nsamps());
     tsamp = dm_trials.get_tsamp();
-    map_instances();
+    subints = new FoldedSubints<float>(64,16);
+    optimiser = new FoldOptimiser (64,16);
+    min_period = 0.001;
+    max_period = 10.00;
   }
 
   void enable_progress_bar(void){
@@ -410,15 +377,19 @@ public:
   
   void fold_n(unsigned int n_to_fold){
     int count = std::min(n_to_fold,(unsigned int) cands.size());
+    float p;
     for (int ii=0;ii<count;ii++){
-      dm_to_cand_map[cands[ii].dm_idx].push_back(ii);
+      p = 1.0/cands[ii].freq;
+      if (p>min_period && p<max_period)
+	dm_to_cand_map[cands[ii].dm_idx].push_back(ii);
     }
     fold_all_mapped();
     std::sort(cands.begin(),cands.end(),less_than_key());
   }
-
+  
   ~MultiFolder(){
-    delete_instances();
+    delete subints;
+    delete optimiser;
     if (use_progress_bar)
       delete progress_bar;
   }

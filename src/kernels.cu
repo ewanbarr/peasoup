@@ -22,20 +22,22 @@
 
 //--------------Harmonic summing----------------//
 
+//Could be optimised with registers
 __global__ 
 void harmonic_sum_kernel_generic(float *d_idata, float *d_odata,
 				 int gulp_index, int size, int harmonic, 
 				 float one_over_sqrt_harm)
 {
+  float val;
   int Index = blockIdx.x * blockDim.x + threadIdx.x;
   if(Index<size) 
     {
-      d_odata[gulp_index+Index] = d_idata[gulp_index+Index];
+      val = d_idata[gulp_index+Index];
       for(int i = 1; i < harmonic; i++)
         {
-          d_odata[gulp_index+Index] += d_idata[int((i*(gulp_index+Index))/harmonic+0.5)];
+	  val += d_idata[int((i*(gulp_index+Index))/harmonic+0.5)];
         }
-      d_odata[gulp_index+Index] = d_odata[gulp_index+Index] * one_over_sqrt_harm;
+      d_odata[gulp_index+Index] = val * one_over_sqrt_harm;
     }
   return;
 }
@@ -67,26 +69,29 @@ void device_harmonic_sum(float* d_input_array, float* d_output_array,
 							  one_over_sqrt_harm);
       gulp_index = gulp_index + blocks*max_threads;
     }
-  ErrorChecker::check_cuda_error();
+  ErrorChecker::check_cuda_error("Error from device_harmonic_sum");
   return;
 }
 
 //------------spectrum forming--------------//
 
 
-//Bad terminology, this forms the amplitudes
+//Could be optimised with shared memory
+
 __global__ 
 void power_series_kernel(cufftComplex *d_idata,float* d_odata, int size)
 {
-  float* d_idata_float = (float*)d_idata;
   int Index = blockIdx.x * blockDim.x + threadIdx.x;
+  cufftComplex& x = d_idata[Index];
   if(Index<size)
     {
-      d_odata[Index] = sqrtf(d_idata_float[2*Index]*d_idata_float[2*Index]
-			     + d_idata_float[2*Index+1]*d_idata_float[2*Index+1]);
+      float z = x.x*x.x+x.y*x.y;
+      d_odata[Index] = z*rsqrtf(z);
     }
   return;
 }
+
+//Could be optimised with shared memory
 
 __global__ void bin_interbin_series_kernel(cufftComplex *d_idata,float* d_odata, int size)
 {
@@ -110,6 +115,58 @@ __global__ void bin_interbin_series_kernel(cufftComplex *d_idata,float* d_odata,
   return;
 }
 
+ /*
+__global__ void bin_interbin_series_kernel(cufftComplex *d_idata,float* d_odata, int size)
+{
+  int idx = blockIdx.x * (blockDim.x-1) + threadIdx.x;
+  
+  if (idx>=size-1)
+    return;
+    
+  extern __shared__ cufftComplex s[];
+
+  //blockIdx accounts for backshift by 1 sample to keep single write coalesence
+  
+  if (idx!=0)
+    s[threadIdx.x] = d_idata[idx-1];
+  else
+    s[threadIdx.x] = make_cuComplex(0.0,0.0);
+  __syncthreads();
+  
+  if (threadIdx.x+1 == blockDim.x)
+    return;
+
+  cufftComplex x = s[threadIdx.x+1];
+  cufftComplex y = s[threadIdx.x];
+  float ampsq = x.x*x.x+x.y*x.y;
+  float ampsq_diff = 0.5*((x.x-y.x)*(x.x-y.x) +
+			  (x.y-y.y)*(x.y-y.y));
+  float val = max(ampsq,ampsq_diff);
+  d_odata[idx] = val*rsqrtf(val);
+  
+  return;
+}
+ */
+
+void device_form_power_series(cufftComplex* d_array_in, 
+			      float* d_array_out,
+			      int size, int way)
+{
+
+  if (way == 1 ){
+    BlockCalculator calc(size,MAX_BLOCKS,MAX_THREADS);
+    for (int ii=0;ii<calc.size();ii++)
+      bin_interbin_series_kernel<<<MAX_BLOCKS,MAX_THREADS>>>(d_array_in,d_array_out,size);
+  } else {
+    BlockCalculator calc(size,MAX_BLOCKS,MAX_THREADS);
+    for (int ii=0;ii<calc.size();ii++)
+      power_series_kernel<<<MAX_BLOCKS,MAX_THREADS>>>(d_array_in,d_array_out,size);
+  }
+  ErrorChecker::check_cuda_error("Error from device_form_power_series");
+  return;
+}
+
+/*
 void device_form_power_series(cufftComplex* d_array_in, float* d_array_out,
 			      int size, int way)
 {
@@ -120,29 +177,32 @@ void device_form_power_series(cufftComplex* d_array_in, float* d_array_out,
   
   int gulp_size;
   
-  gulps = (size-1)/(MAX_BLOCKS*MAX_THREADS)+1;
+  gulps = (size-1)/(MAX_BLOCKS*(MAX_THREADS))+1;
 
   for(gulp_counter = 0; gulp_counter<gulps; gulp_counter++)
     {
       if(gulp_counter<gulps-1)
         {
-          gulp_size = MAX_BLOCKS*MAX_THREADS;
+          gulp_size = MAX_BLOCKS*(MAX_THREADS);
         }
       else
         {
-          gulp_size = size - gulp_counter*MAX_BLOCKS*MAX_THREADS;
+          gulp_size = size - gulp_counter*MAX_BLOCKS*(MAX_THREADS);
         }
       if (way==0)
         power_series_kernel<<<MAX_BLOCKS,MAX_THREADS>>>(gulp_in_ptr,gulp_out_ptr,gulp_size);
       if (way==1){
         bin_interbin_series_kernel<<<MAX_BLOCKS,MAX_THREADS>>>(gulp_in_ptr,gulp_out_ptr,gulp_size);
+	//bin_interbin_series_kernel<<<MAX_BLOCKS,MAX_THREADS,MAX_THREADS*sizeof(cufftComplex)>>>(gulp_in_ptr,gulp_out_ptr,gulp_size);
       }
-      gulp_in_ptr = gulp_in_ptr + MAX_BLOCKS*MAX_THREADS;
-      gulp_out_ptr = gulp_out_ptr + MAX_BLOCKS*MAX_THREADS;
+      gulp_in_ptr = gulp_in_ptr + MAX_BLOCKS*(MAX_THREADS);
+      gulp_out_ptr = gulp_out_ptr + MAX_BLOCKS*(MAX_THREADS);
     }
+  Utils::dump_device_buffer<cufftComplex>(d_array_in,size,"pre_bin_interbin2.bin");                                                                                                                                                                 
+  Utils::dump_device_buffer<float>(d_array_out,size,"post_bin_interbin2.bin");
   return;
 }
-
+*/
 //-----------------time domain resampling---------------//
 
 inline __device__ unsigned long getAcceleratedIndex(double accel_fact, double size_by_2, unsigned long id){
@@ -185,8 +245,9 @@ __global__ void resample_kernel(float* input_d,
   double frac = idx_read_frac-idx_read;
   output_d[idx] = input_d[idx_read]*(1.0-frac) + input_d[idx_read+1]*frac;
 }
-
+*/
 //Non cetralised stretch
+/*
 __global__ void GPU_resample_kernel(float *d_idata,float* d_odata, int size, float acc, double tsamp)
 {
   double c = 2.99792458e8;
@@ -225,7 +286,7 @@ void device_resample(float * d_idata, float * d_odata,
 						       (unsigned long) size,
 						       size_by_2,
 						       (unsigned long) ii*max_threads*max_blocks);
-  ErrorChecker::check_cuda_error();
+  ErrorChecker::check_cuda_error("Error from device_resample");
 }
 
 /*
@@ -239,8 +300,8 @@ void device_resample(float * d_idata, float * d_odata,
     GPU_resample_kernel<<< calc[ii].blocks,max_threads >>>(d_idata, d_odata,
 							   (int) size, a, (double)tsamp);
   ErrorChecker::check_cuda_error();
-}
-*/
+  }*/
+
 //------------------peak finding-----------------//
 //defined here as (although Thrust based) requires CUDA functors
 
@@ -254,6 +315,7 @@ struct greater_than_threshold : thrust::unary_function<thrust::tuple<int,float>,
 int device_find_peaks(int n, int start_index, float * d_dat,
 	     float thresh, int * indexes, float * snrs)
 {
+
   using thrust::tuple;
   using thrust::counting_iterator;
   using thrust::zip_iterator;
@@ -271,7 +333,8 @@ int device_find_peaks(int n, int start_index, float * d_dat,
   thrust::copy(d_index.begin(),d_index.begin()+num_copied,indexes);
   thrust::copy(d_snrs.begin(),d_snrs.begin()+num_copied,snrs);
 
-  ErrorChecker::check_cuda_error();
+
+  ErrorChecker::check_cuda_error("Error from device_find_peaks;");
   return(num_copied);
 }
 
@@ -313,6 +376,16 @@ float GPU_mean(T* d_collection,int nsamps, int min_bin)
   return mean;
 }
 
+
+template<typename T>
+void GPU_fill(T* start, T* end, T value){
+  thrust::device_ptr<T> ar_start(start);
+  thrust::device_ptr<T> ar_end(end);
+  thrust::fill(ar_start,ar_end,value);
+  ErrorChecker::check_cuda_error("Error in GPU_fill");
+}
+
+template void GPU_fill<float>(float*, float*, float);
 template float GPU_rms<float>(float*,int,int);
 template float GPU_mean<float>(float*,int,int);
 
@@ -339,7 +412,7 @@ void device_normalise(float* d_powers,
   for (int ii=0;ii<calc.size();ii++)
     normalisation_kernel<<<calc[ii].blocks,max_threads>>>(d_powers,mean,sigma,size,
 							  ii*max_blocks*max_threads);
-  ErrorChecker::check_cuda_error();
+  ErrorChecker::check_cuda_error("Error from device_normalise");
 }
 
 
@@ -367,18 +440,46 @@ void device_normalise_spectrum(int nsamp,
                     thrust::make_constant_iterator(*sigma),
                     thrust::device_ptr<float>(d_normalised_power_spectrum),
                     thrust::divides<float>());
-  ErrorChecker::check_cuda_error();
+  ErrorChecker::check_cuda_error("Error from device_normalise_spectrum");
 }
 
 
 //--------------Time series folder----------------//
+
+__global__ 
+void interpolated_rebin_time_series_kernel(float* i_data, float* o_data,
+					   unsigned int size, float tsamp,
+					   float period, unsigned int nbins,
+					   unsigned int gulp_idx, 
+					   unsigned int in_size, float frac)
+{
+  int oidx = blockIdx.x * blockDim.x;
+  int iidx = __float2int_rd(oidx*frac);
+  
+  extern __shared__ float i_data_s[];
+
+  if (threadIdx.x < blockDim.x*frac+1){
+    if (iidx+threadIdx.x < in_size)
+      i_data_s[threadIdx.x] = i_data[iidx+threadIdx.x];
+  }
+  __syncthreads();
+  if (oidx+threadIdx.x < size){ 
+    float ipart;
+    float x = threadIdx.x*frac + modff(oidx*frac,&ipart);
+    int x0 = __float2int_rd(x);
+    int x1 = x0+1;
+    float y0 = i_data_s[x0];
+    float y1 = i_data_s[x1];
+    o_data[oidx+threadIdx.x] = y0 + (y1-y0)*((x-x0)/(x1-x0));
+  }
+}
 
 
 __global__ 
 void rebin_time_series_kernel(float* i_data, float* o_data,
 			      unsigned int size, float tsamp,
 			      float period, unsigned int nbins,
-			      unsigned int gulp_idx) 
+			      unsigned int gulp_idx, unsigned int in_size) 
 { 
   int ii;
   float val=0;
@@ -386,8 +487,12 @@ void rebin_time_series_kernel(float* i_data, float* o_data,
   int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
   if (idx>=size)
     return;
+
   int start_idx = __float2int_rn(idx*period/(tsamp*nbins));
   int end_idx = __float2int_rn((idx+1)*period/(tsamp*nbins));
+
+  if (end_idx>=in_size)
+    end_idx=in_size-1;
   if (start_idx==end_idx){
     o_data[idx] = i_data[start_idx];
   } else {
@@ -433,6 +538,7 @@ void device_create_subints(float* input, float* output,
   create_subints_kernel<<<nblocks,max_threads>>>(input,output,nbins,
 						 output_size,
 						 nrots_per_subint);
+  ErrorChecker::check_cuda_error("Error from device_create_subints");
 }
 
 
@@ -447,7 +553,8 @@ void device_rebin_time_series(float* input, float* output,
   unsigned int gulp_index = 0;
   unsigned int gulp_size;
   unsigned int blocks = 0;
-   
+  float frac = period/tsamp/nbins;
+  
   gulps = out_size/(max_blocks*max_threads)+1;
   for (gulp_counter = 0; gulp_counter<gulps; gulp_counter++)
     {
@@ -462,9 +569,21 @@ void device_rebin_time_series(float* input, float* output,
 	  blocks = (gulp_size-1)/max_threads+1;
 	}
       gulp_index = gulp_counter*blocks*max_threads;
-      rebin_time_series_kernel<<<blocks,max_threads>>>(input,output,out_size,
-						       tsamp,period,nbins,
-						       gulp_index);
+      
+      if (frac < 1.0){
+	//the +4 below is a accounts for a potential rounding error in the 
+	//rebinning kernel and should be left as is. Saftey first.
+	int shared_mem_size = (int)(max_threads*frac+4)*sizeof(float);
+	interpolated_rebin_time_series_kernel<<<blocks,max_threads,shared_mem_size>>>(input,output,out_size,
+										      tsamp,period,nbins,
+										      gulp_index,in_size,frac);
+      } else {
+	rebin_time_series_kernel<<<blocks,max_threads>>>(input,output,out_size,
+							 tsamp,period,nbins,
+							 gulp_index,in_size);
+	
+      }
+      ErrorChecker::check_cuda_error("Error from device_rebin_time_series");
     }
 }
 
@@ -585,6 +704,7 @@ unsigned int device_argmax(float* input, unsigned int size)
 {
   thrust::device_ptr<float> ptr(input);
   thrust::device_ptr<float> max_elem = thrust::max_element(ptr,ptr+size);
+  ErrorChecker::check_cuda_error("Error from thrust::max_element in device_argmax");
   return thrust::distance(ptr,max_elem);
 }
 
@@ -594,7 +714,7 @@ void device_real_to_complex(float* input, cuComplex* output, unsigned int size,
   BlockCalculator calc(size,max_blocks,max_threads);
   for (int ii=0;ii<calc.size();ii++)
     real_to_complex_kernel<<<calc[ii].blocks,max_threads>>>(input,output,size);
-  ErrorChecker::check_cuda_error();
+  ErrorChecker::check_cuda_error("Error from device_real_to_complex");
   return;
 }
 
@@ -605,7 +725,7 @@ void device_get_absolute_value(cuComplex* input, float* output, unsigned int siz
   BlockCalculator calc(size,max_blocks,max_threads);
   for (int ii=0;ii<calc.size();ii++)
     cuCabsf_kernel<<<calc[ii].blocks,max_threads>>>(input,output,size);
-  ErrorChecker::check_cuda_error();
+  ErrorChecker::check_cuda_error("Error from device_get_absolute_value");
   return;
 }
 
@@ -620,7 +740,7 @@ void device_generate_shift_array(cuComplex* shifted_ar,
   for (int ii=0;ii<calc.size();ii++)
     shift_array_generator_kernel<<<calc[ii].blocks,max_threads>>>(shifted_ar, shifted_ar_size, nbins,
 								  nints, nshift, shifts, two_pi);
-  ErrorChecker::check_cuda_error();
+  ErrorChecker::check_cuda_error("Error from device_generate_shift_array");
   return;
 }
 
@@ -631,10 +751,8 @@ void device_generate_template_array(cuComplex* templates, unsigned int nbins,
   BlockCalculator calc(size,max_blocks,max_threads);
   for (int ii=0;ii<calc.size();ii++){
     template_generator_kernel<<<calc[ii].blocks,max_threads>>>(templates, nbins, size);
-    cudaDeviceSynchronize();
-    ErrorChecker::check_cuda_error();
   }
-  ErrorChecker::check_cuda_error();
+  ErrorChecker::check_cuda_error("Error from device_generate_template_array");
   return;
 }
 
@@ -648,7 +766,7 @@ void device_multiply_by_shift(cuComplex* input, cuComplex* output,
     multiply_by_shift_kernel<<<calc[ii].blocks,max_threads>>>(input,output,shift_array,
 							      nbins_by_nints,size);
   }
-  ErrorChecker::check_cuda_error();
+  ErrorChecker::check_cuda_error("Error from device_multiply_by_shift");
   return;
 }
 
@@ -663,7 +781,7 @@ void device_collapse_subints(cuComplex* input, cuComplex* output,
     collapse_subints_kernel<<<calc[ii].blocks,max_threads>>>(input,output,nbins,
 							     nints,nbins_by_nints,size);
   }
-  ErrorChecker::check_cuda_error();
+  ErrorChecker::check_cuda_error("Error from device_collapse_subints");
   return;
 }
   
@@ -680,7 +798,7 @@ void device_multiply_by_templates(cuComplex* input, cuComplex* output,
 								 nbins,nshifts,nbins_by_nshifts,
 								 size,step);
   }
-  ErrorChecker::check_cuda_error();
+  ErrorChecker::check_cuda_error("Error from device_multiply_by_templates");
   return;
 }
 
@@ -885,6 +1003,6 @@ void device_zap_birdies(cuComplex* fseries, float* d_birdies, float* d_widths, f
   BlockCalculator calc(birdies_size, max_blocks, max_threads);
   for (int ii=0;ii<calc.size();ii++)
     zap_birdies_kernel<<<calc[ii].blocks,max_threads>>>(fseries,d_birdies,d_widths,bin_width,birdies_size,fseries_size);
-  ErrorChecker::check_cuda_error();
+  ErrorChecker::check_cuda_error("Error from device_zap_birdies");
   return;
 }

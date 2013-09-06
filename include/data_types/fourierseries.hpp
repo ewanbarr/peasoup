@@ -40,16 +40,13 @@ protected:
   DeviceFrequencySeries(unsigned int nbins, double bin_width)
     :FrequencySeries<T>(nbins,bin_width)
   {
-    cudaError_t error = cudaMalloc((void**)&this->data_ptr, sizeof(T)*nbins);
-    ErrorChecker::check_cuda_error(error);
+    Utils::device_malloc<T>(&this->data_ptr,nbins);
   }
 
   ~DeviceFrequencySeries()
   {
-    cudaFree(this->data_ptr);
-    ErrorChecker::check_cuda_error();
+    Utils::device_free(this->data_ptr);
   }
-  
 };
 
 //template class should be cufftComplex/cufftDoubleComplex

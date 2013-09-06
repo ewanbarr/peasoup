@@ -12,6 +12,7 @@
 #include <transforms/peakfinder.hpp>
 #include <transforms/distiller.hpp>
 #include <transforms/harmonicfolder.hpp>
+#include <transforms/scorer.hpp>
 #include <utils/exceptions.hpp>
 #include <utils/utils.hpp>
 #include <utils/stats.hpp>
@@ -123,6 +124,11 @@ public:
   void start(void)
   {
     cudaSetDevice(device);
+
+    bool padding = false;
+    if (size > trials.get_nsamps())
+      padding = true;
+    
     CuFFTerR2C r2cfft(size);
     CuFFTerC2R c2rfft(size);
     float tobs = size*trials.get_tsamp();
@@ -148,6 +154,7 @@ public:
     HarmonicDistiller harm_finder(args.freq_tol,args.max_harm,false);
     AccelerationDistiller acc_still(tobs,args.freq_tol,true);
     float mean,std,rms;
+    float padding_mean;
     int ii;
 
     while (true){
@@ -160,7 +167,11 @@ public:
 	std::cout << "Copying DM trial to device (DM: " << tim.get_dm() << ")"<< std::endl;
       d_tim.copy_from_host(tim);
       
-      
+      if (padding){
+	padding_mean = stats::mean<float>(d_tim.get_data(),trials.get_nsamps());
+	d_tim.fill(trials.get_nsamps(),d_tim.get_nsamps(),padding_mean);
+      }
+
       if (args.verbose)
 	std::cout << "Generating accelration list" << std::endl;
       acc_plan.generate_accel_list(tim.get_dm(),acc_list);
@@ -205,6 +216,7 @@ public:
 	  std::cout << "Resampling to "<< acc_list[jj] << " m/s/s" << std::endl;
 	resampler.resample(d_tim,d_tim_r,size,acc_list[jj]);
 
+	
 	if (args.verbose)
 	  std::cout << "Execute forward FFT" << std::endl;
 	r2cfft.execute(d_tim_r.get_data(),d_fseries.get_data());
@@ -215,7 +227,6 @@ public:
 
 	if (args.verbose)
 	  std::cout << "Normalise power spectrum" << std::endl;
-	
 	stats::normalise(pspec.get_data(),mean*size,std*size,size/2+1);
 
 	if (args.verbose)
@@ -431,7 +442,8 @@ int main(int argc, char **argv)
   if (args.size==0)
     size = Utils::prev_power_of_two(filobj.get_nsamps());
   else
-    size = std::min(args.size,filobj.get_nsamps());
+    //size = std::min(args.size,filobj.get_nsamps());
+    size = args.size;
   if (args.verbose)
     std::cout << "Setting transform length to " << size << " points" << std::endl;
   
@@ -453,7 +465,7 @@ int main(int argc, char **argv)
   }
   
   DMDistiller dm_still(args.freq_tol,true);
-  HarmonicDistiller harm_still(0.001,args.max_harm,true,false);
+  HarmonicDistiller harm_still(args.freq_tol,args.max_harm,true,false);
   CandidateCollection dm_cands;
   for (int ii=0; ii<nthreads; ii++){
     pthread_join(threads[ii],NULL);
@@ -465,12 +477,16 @@ int main(int argc, char **argv)
     std::cout << "Distilling DMs" << std::endl;
   dm_cands.cands = dm_still.distill(dm_cands.cands);
   //dm_cands.print();
+  dm_cands.cands = harm_still.distill(dm_cands.cands);
+  
+  CandidateScorer cand_scorer(filobj.get_tsamp(),filobj.get_cfreq(), filobj.get_foff(),
+			      fabs(filobj.get_foff())*filobj.get_nchans());
+  cand_scorer.score_all(dm_cands.cands);
 
   if (args.verbose)
     std::cout << "Setting up time series folder" << std::endl;
-
-  dm_cands.cands = harm_still.distill(dm_cands.cands);
-
+  
+    
   MultiFolder folder(dm_cands.cands,trials);
   if (args.progress_bar)
     folder.enable_progress_bar();

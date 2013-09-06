@@ -181,3 +181,7 @@ float GPU_mean(T* d_collection,
 	       int nsamps,
 	       int min_bin);  
 
+template <typename T>
+void GPU_fill(T* start,
+	      T* end,
+	      T value);

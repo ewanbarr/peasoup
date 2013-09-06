@@ -21,7 +21,6 @@ public:
   {
     device_resample(input.get_data(), output.get_data(), size,
 		    acc, input.get_tsamp(),max_threads,  max_blocks);
-    ErrorChecker::check_cuda_error();
   }
 
 };

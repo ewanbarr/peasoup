@@ -5,6 +5,7 @@
 #include <utils/exceptions.hpp>
 #include <fstream>
 #include <vector>
+#include <iostream>
 
 class Utils {
 public:
@@ -18,46 +19,44 @@ public:
   
   template <class T>
   static void device_malloc(T** ptr,unsigned int units){
-    cudaError_t error;
-    error = cudaMalloc((void**)ptr, sizeof(T)*units);
-    ErrorChecker::check_cuda_error(error);
+    cudaMalloc((void**)ptr, sizeof(T)*units);
+    ErrorChecker::check_cuda_error("Error from device_malloc");
   }
   
   template <class T>
   static void host_malloc(T** ptr,unsigned int units){
-    cudaError_t error;
-    error = cudaMallocHost((void**)ptr, sizeof(T)*units);
-    ErrorChecker::check_cuda_error(error);
+    cudaMallocHost((void**)ptr, sizeof(T)*units);
+    ErrorChecker::check_cuda_error("Error from host_malloc");
   }
 
   template <class T>
   static void device_free(T* ptr){
-    cudaError_t error = cudaFree(ptr);
-    ErrorChecker::check_cuda_error(error);
+    cudaFree(ptr);
+    ErrorChecker::check_cuda_error("Error from device_free");
   }
   
   template <class T>
   static void host_free(T* ptr){
-    cudaError_t error = cudaFreeHost(ptr);
-    ErrorChecker::check_cuda_error(error);
+    cudaFreeHost((void*) ptr);
+    ErrorChecker::check_cuda_error("Error from host_free.");
   }
 
   template <class T>
   static void h2dcpy(T* d_ptr, T* h_ptr, unsigned int units){
-    cudaError_t error = cudaMemcpy(d_ptr,h_ptr,sizeof(T)*units,cudaMemcpyHostToDevice);
-    ErrorChecker::check_cuda_error(error);
+    cudaMemcpy(d_ptr,h_ptr,sizeof(T)*units,cudaMemcpyHostToDevice);
+    ErrorChecker::check_cuda_error("Error from h2dcpy");
   }
 
   template <class T>
   static void d2hcpy(T* h_ptr, T* d_ptr, unsigned int units){
-    cudaError_t error = cudaMemcpy(h_ptr,d_ptr,sizeof(T)*units,cudaMemcpyDeviceToHost);
-    ErrorChecker::check_cuda_error(error);
+    cudaMemcpy(h_ptr,d_ptr,sizeof(T)*units,cudaMemcpyDeviceToHost);
+    ErrorChecker::check_cuda_error("Error from d2hcpy");
   }
 
   template <class T>
   static void d2dcpy(T* d_ptr_dst, T* d_ptr_src, unsigned int units){
-    cudaError_t error = cudaMemcpy(d_ptr_dst,d_ptr_src,sizeof(T)*units,cudaMemcpyDeviceToDevice);
-    ErrorChecker::check_cuda_error(error);
+    cudaMemcpy(d_ptr_dst,d_ptr_src,sizeof(T)*units,cudaMemcpyDeviceToDevice);
+    ErrorChecker::check_cuda_error("Error from d2dcpy");
   }
 
   template <class T>

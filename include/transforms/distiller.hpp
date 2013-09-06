@@ -19,7 +19,6 @@ protected:
   int size;
   bool keep_related;
   virtual void condition(std::vector<Candidate>& cands, int idx){}
-
   BaseDistiller(bool keep_related)
     :keep_related(keep_related){}
 
@@ -60,6 +59,7 @@ public:
   }
 };
 
+
 class HarmonicDistiller: public BaseDistiller {
 private:
   float tolerance;
@@ -69,15 +69,20 @@ private:
   void condition(std::vector<Candidate>& cands, int idx)
   {
     int ii,jj,kk;
-    float ratio,freq;
+    double ratio,freq;
     int nh;
-    float upper_tol = 1+tolerance;
-    float lower_tol = 1-tolerance;
-    float fundi_freq = cands[idx].freq;
+    double upper_tol = 1+tolerance;
+    double lower_tol = 1-tolerance;
+    double fundi_freq = cands[idx].freq;
     float max_denominator;
     for (ii=idx+1;ii<size;ii++){
       freq = cands[ii].freq;
       nh = cands[ii].nh;
+
+      if (cands[ii].nh > cands[idx].nh){
+        continue;
+      }
+
       if (fractional_harms)
 	max_denominator = pow(2.0,nh);
       else
@@ -108,32 +113,30 @@ public:
 class AccelerationDistiller: public BaseDistiller {
 private:
   float tobs;
-  float tobs_over_c;
+  double tobs_over_c;
   float tolerance;
   
-  float correct_for_acceleration(float freq, float delta_acc){
+  float correct_for_acceleration(double freq, double delta_acc){
     return freq+delta_acc*freq*tobs_over_c;
   }
 
   void condition(std::vector<Candidate>& cands,int idx)
   {
     int ii,jj,kk;
-    float ratio,freq;
-    float fundi_freq = cands[idx].freq;
-    float fundi_acc = cands[idx].acc;
-    float acc_freq;
-    float delta_acc;
-    float edge = fundi_freq*tolerance;
-
+    double ratio,freq;
+    double fundi_freq = cands[idx].freq;
+    double fundi_acc = cands[idx].acc;
+    double acc_freq;
+    double delta_acc;
+    double edge = fundi_freq*tolerance;
     for (ii=idx+1;ii<size;ii++){
-      /*
       if (cands[ii].nh > cands[idx].nh){
 	continue;
       }
-      */
+
       delta_acc = fundi_acc-cands[ii].acc;
       acc_freq = correct_for_acceleration(fundi_freq,delta_acc);
-      
+
       if (acc_freq>fundi_freq){
 	if (cands[ii].freq>fundi_freq-edge && cands[ii].freq<acc_freq+edge){
 	  if (keep_related)
@@ -162,20 +165,20 @@ public:
 class DMDistiller: public BaseDistiller {
 private:
   float tolerance;
-  float ratio;
+  double ratio;
 
   void condition(std::vector<Candidate>& cands,int idx)
   {
     int ii;
-    float fundi_freq = cands[idx].freq;
-    float upper_tol = 1+tolerance;
-    float lower_tol = 1-tolerance;
+    double fundi_freq = cands[idx].freq;
+    double upper_tol = 1+tolerance;
+    double lower_tol = 1-tolerance;
     for (ii=idx+1;ii<size;ii++){
-      /*
+      
       if (cands[ii].nh > cands[idx].nh){
         continue;
       }
-      */
+      
       ratio = cands[ii].freq/fundi_freq;
       if (ratio>(lower_tol)&&ratio<(upper_tol)){
 	if (keep_related)

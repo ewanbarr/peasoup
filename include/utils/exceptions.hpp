@@ -60,19 +60,23 @@ public:
     }
   }
 
-
-  static void check_cuda_error(cudaError_t error){
+  static void check_cuda_error(std::string msg="Unspecified location"){
+    cudaDeviceSynchronize();
+    cudaError_t error = cudaGetLastError();
     if (error!=cudaSuccess){
       std::stringstream error_msg;
       error_msg << "CUDA failed with error: "
-		<< cudaGetErrorString(error) << std::endl;
+                << cudaGetErrorString(error) << std::endl 
+		<< "Additional: " << msg << std::endl;
       throw std::runtime_error(error_msg.str());
     }
   }
 
-  static void check_cuda_error(){
-    check_cuda_error(cudaGetLastError());
+  /*
+  static void check_cuda_error(cudaError_t error){
+    check_cuda_error(error,"");
   }
+  */
 
   static void throw_error(std::string msg){
     throw std::runtime_error(msg.c_str());

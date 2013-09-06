@@ -14,6 +14,10 @@ public:
   float freq;
   float folded_snr;
   float opt_period;
+  bool is_adjacent;
+  bool is_pyhsical;
+  float ddm_count_ratio;
+  float ddm_snr_ratio;
   std::vector<Candidate> assoc;
   
   void append(Candidate& other){
@@ -23,16 +27,18 @@ public:
   Candidate(float dm, int dm_idx, float acc, int nh, float snr, float freq)
     :dm(dm),dm_idx(dm_idx),acc(acc),nh(nh),
      snr(snr),folded_snr(0.0),freq(freq),
-     opt_period(0.0){}
+     opt_period(0.0),is_adjacent(false),is_pyhsical(false),
+     ddm_count_ratio(0.0),ddm_snr_ratio(0.0){}
   
   Candidate(float dm, int dm_idx, float acc, int nh, float snr, float folded_snr, float freq)
     :dm(dm),dm_idx(dm_idx),acc(acc),nh(nh),snr(snr),
-     folded_snr(folded_snr),freq(freq),opt_period(0.0){}
+     folded_snr(folded_snr),freq(freq),opt_period(0.0),
+     is_adjacent(false),is_pyhsical(false),
+     ddm_count_ratio(0.0),ddm_snr_ratio(0.0){}
   
   void print(FILE* fo=stdout){
-    fprintf(fo,"%.9f\t%.9f\t%.9f\t%.2f\t%.2f\t%d\t%.1f\t%.1f\n",
-	    1.0/freq,opt_period,freq,dm,acc,nh,snr,folded_snr);
-    
+    fprintf(fo,"%.9f\t%.9f\t%.9f\t%.2f\t%.2f\t%d\t%.1f\t%.1f\t%d\t%d\t%.4f\t%.4f\t%d\n",
+	    1.0/freq,opt_period,freq,dm,acc,nh,snr,folded_snr,is_adjacent,is_pyhsical,ddm_count_ratio,ddm_snr_ratio,assoc.size());
     for (int ii=0;ii<assoc.size();ii++){
       assoc[ii].print(fo);
     }

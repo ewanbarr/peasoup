@@ -11,7 +11,7 @@ INCLUDE_DIR = ./include
 
 # Compiler flags
 OPTIMISE = -O3
-DEBUG    = -g
+DEBUG    = 
 
 # Includes and libraries
 INCLUDE  = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I${DEDISP_DIR}/include -I${CUDA_DIR}/include -I./tclap
@@ -24,21 +24,21 @@ NVCCFLAGS  = ${OPTIMISE} ${NVCC_COMP_FLAGS} --machine 64 -Xcompiler ${DEBUG}
 CFLAGS    = -fPIC ${OPTIMISE} ${DEBUG}
 
 OBJECTS   = ${OBJ_DIR}/kernels.o
-EXE_FILES = pipeline ${BIN_DIR}/dedisp_test
+EXE_FILES = ${BIN_DIR}/peasoup 
 
 all: directories ${OBJECTS} ${EXE_FILES}
 
 ${OBJ_DIR}/kernels.o: ${SRC_DIR}/kernels.cu
 	${NVCC} -c ${NVCCFLAGS} ${INCLUDE} $<  -o $@
 
-pipeline: ${SRC_DIR}/pipeline_multi.cpp ${OBJECTS}
+${BIN_DIR}/peasoup: ${SRC_DIR}/pipeline_multi.cpp ${OBJECTS}
 	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
 
 ${BIN_DIR}/rednoise: ${SRC_DIR}/rednoise_test.cpp ${OBJECTS}
 	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
 
-${BIN_DIR}/hcfft: ${SRC_DIR}/hcfft.cpp
-	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $< -o $@
+${BIN_DIR}/hcfft: ${SRC_DIR}/hcfft.cpp ${OBJECTS}
+	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
 
 ${BIN_DIR}/folder_test: ${SRC_DIR}/folder_test.cpp ${OBJECTS}
 	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
@@ -51,4 +51,5 @@ directories:
 	@mkdir -p ${OBJ_DIR}
 
 clean:
-	@rm -rf ${BIN_DIR}/*
+	@rm -rf ${BIN_DIR}/*	
+	@rm -rf ${OBJ_DIR}/*

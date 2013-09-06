@@ -96,35 +96,33 @@ public:
   DeviceTimeSeries(unsigned int nsamps)
     :TimeSeries<OnDeviceType>(nsamps)
   {
-    cudaError_t error = cudaMalloc((void**)&this->data_ptr, sizeof(OnDeviceType)*nsamps);
-    ErrorChecker::check_cuda_error(error);
-    
+    Utils::device_malloc<OnDeviceType>(&this->data_ptr,nsamps);
   }
 
   template <class OnHostType>
   DeviceTimeSeries(TimeSeries<OnHostType>& host_tim)
     :TimeSeries<OnDeviceType>(host_tim.get_nsamps())
   {
-    cudaError_t error;
     OnHostType* copy_buffer;
-    error = cudaMalloc((void**)&this->data_ptr, sizeof(OnDeviceType)*this->nsamps);
-    ErrorChecker::check_cuda_error(error);
-    error = cudaMalloc((void**)&copy_buffer, sizeof(OnHostType)*this->nsamps);
-    ErrorChecker::check_cuda_error(error);
-    error = cudaMemcpy(copy_buffer, host_tim.get_data(), 
-		       this->nsamps*sizeof(OnHostType), cudaMemcpyHostToDevice);
-    ErrorChecker::check_cuda_error(error);
+    Utils::device_malloc<OnDeviceType>(&this->data_ptr,this->nsamps);
+    Utils::device_malloc<OnHostType>(&this->data_ptr,this->nsamps);
+    Utils::h2dcpy(copy_buffer,host_tim.get_data(),this->nsamps*sizeof(OnHostType));
     thrust::device_ptr<OnHostType> thrust_copy_ptr(copy_buffer);
     thrust::device_ptr<OnDeviceType> thrust_data_ptr(this->data_ptr);
     thrust::copy(thrust_copy_ptr, thrust_copy_ptr+this->nsamps, thrust_data_ptr);
     this->tsamp = host_tim.get_tsamp();
-    cudaFree(copy_buffer);
+    Utils::device_free(copy_buffer);
+  }
+
+  void fill(size_t start, size_t end, OnDeviceType value){
+    if (end > this->nsamps)
+      ErrorChecker::throw_error("DeviceTimeSeries::fill bad end value requested");
+    GPU_fill(this->data_ptr+start,this->data_ptr+end,value);
   }
  
   ~DeviceTimeSeries()
   {
-    cudaFree(this->data_ptr);
-    ErrorChecker::check_cuda_error();
+    Utils::device_free(this->data_ptr);
   }
 
 };
@@ -139,24 +137,22 @@ public:
   ReusableDeviceTimeSeries(unsigned int nsamps)
     :DeviceTimeSeries<OnDeviceType>(nsamps)
   {
-    cudaError_t error = cudaMalloc((void**)&copy_buffer, sizeof(OnHostType)*this->nsamps);
-    ErrorChecker::check_cuda_error(error);
+    Utils::device_malloc<OnHostType>(&copy_buffer,this->nsamps);
   }
   
   void copy_from_host(TimeSeries<OnHostType>& host_tim)
   {
+    size_t size = std::min(host_tim.get_nsamps(),this->nsamps);
     this->tsamp = host_tim.get_tsamp();
-    cudaError_t error = cudaMemcpy(copy_buffer, host_tim.get_data(), 
-				   this->nsamps*sizeof(OnHostType), cudaMemcpyHostToDevice);
-    ErrorChecker::check_cuda_error(error);
+    Utils::h2dcpy(copy_buffer, host_tim.get_data(), size*sizeof(OnHostType));
     thrust::device_ptr<OnHostType> thrust_copy_ptr(copy_buffer);
     thrust::device_ptr<OnDeviceType> thrust_data_ptr(this->data_ptr);
-    thrust::copy(thrust_copy_ptr, thrust_copy_ptr+this->nsamps, thrust_data_ptr);
+    thrust::copy(thrust_copy_ptr, thrust_copy_ptr+size, thrust_data_ptr);
   }
 
   ~ReusableDeviceTimeSeries()
   {
-    cudaFree(copy_buffer);
+    Utils::device_free(copy_buffer);
   }
 };
 

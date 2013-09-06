@@ -1,9 +1,14 @@
-#define BLOCK_SIZE 256
+#pragma once
+#include "cuda.h"
+/*
+cudaDeviceProp properties;
+cudaGetDeviceProperties(&properties,0);
+unsigned int MAX_THREADS = properties.maxThreadsPerBlock;
+unsigned int MAX_BLOCKS = properties.maxGridSize[0];
+*/
 #define MAX_BLOCKS 65535
 #define MAX_THREADS 512
-#define MAX_THREADS_IN_BLOCK 256
-#define TILE_YDIM 32
-#define TRANSPOSE_GPU_TILE_DIM 32
-#define TRANSPOSE_GPU_BLOCK_ROWS 8
+
+
 
 

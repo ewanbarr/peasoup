@@ -1,3 +1,4 @@
+#pragma once
 #include <iostream>
 #include "data_types/candidates.hpp"
 #include "data_types/fourierseries.hpp"
