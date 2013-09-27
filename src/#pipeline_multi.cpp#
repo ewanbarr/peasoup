@@ -451,6 +451,9 @@ int main(int argc, char **argv)
 			    args.acc_pulse_width, size, filobj.get_tsamp(),
 			    filobj.get_cfreq(), filobj.get_foff()); 
   
+  //dump acc plan
+  
+  
   //Multithreading commands
   
   std::vector<Worker*> workers(nthreads);
@@ -493,7 +496,7 @@ int main(int argc, char **argv)
 
   if (args.verbose)
     std::cout << "Folding top 3000 cands" << std::endl;
-  //folder.fold_n(3000);
+  folder.fold_n(3000);
 
   if (args.verbose)
     std::cout << "Writing output files" << std::endl;

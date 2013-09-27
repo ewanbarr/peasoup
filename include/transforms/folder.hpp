@@ -35,41 +35,57 @@ private:
   unsigned int size;
   unsigned int max_blocks;
   unsigned int max_threads;
+  float* sorted_tim_buffer;
+  int* new_indexes_buffer;
+  int* switch_points;
     
 public:
-  float* rebin_buffer;
   TimeSeriesFolder(unsigned int size,
 		   unsigned int max_blocks=MAX_BLOCKS,
 		   unsigned int max_threads=MAX_THREADS)
     :size(size),max_blocks(max_blocks),max_threads(max_threads)
   {
-    Utils::device_malloc<float>(&rebin_buffer,size);
+    Utils::device_malloc<float>(&sorted_tim_buffer,size);
+    Utils::device_malloc<int>(&new_indexes_buffer,size);
   }
 
-  void fold(DeviceTimeSeries<float>& input,FoldedSubints<float>& output, float period)
+  ~TimeSeriesFolder(){
+    Utils::device_free(sorted_tim_buffer);
+    Utils::device_free(new_indexes_buffer);
+  }
+
+  void fold(DeviceTimeSeries<float>& input,FoldedSubints<float>& output, double period)
   {
     output.set_period(period);
-    output.set_tobs(input.get_nsamps()*input.get_tsamp());
+    double tobs = input.get_nsamps() * input.get_tsamp();
+    output.set_tobs((float)tobs);
     unsigned int nbins = output.get_nbins();
     unsigned int nints = output.get_nints();
-    float tobs = input.get_nsamps() * input.get_tsamp();
-    unsigned int rebinned_size = nbins*tobs/period;
-    unsigned int nrots = rebinned_size/nbins;
-    unsigned int nrots_per_subint = nrots/nints;
+    
+
+
+    device_fold_timeseries(input.get_data(), sorted_tim_buffer, output.get_data(),
+			   new_indexes_buffer, input.get_nsamps(), nbins, nints,
+			   period, input.get_tsamp(), max_blocks, max_threads);
+    
+    /*
+    char buf[80];
+    sprintf(buf,"/lustre/projects/p002_swin/ebarr/GPUSEEK_TESTS/tim_%.9f_%d.bin\0",period,nbins);
+    Utils::dump_device_buffer<float>(input.get_data(),input.get_nsamps(),std::string(buf));
     
     device_rebin_time_series(input.get_data(),rebin_buffer,
 			     period, input.get_tsamp(), 
 			     input.get_nsamps(),rebinned_size,
 			     nbins,max_blocks,max_threads);
-    /*
-    char buf[80];
-    sprintf(buf,"/lustre/projects/p002_swin/ebarr/GPUSEEK_TESTS/tim_%.9f_%d.bin\0",period,nbins);
+    
+    sprintf(buf,"/lustre/projects/p002_swin/ebarr/GPUSEEK_TESTS/tim_%.9f_%d_r.bin\0",period,nbins);
     Utils::dump_device_buffer<float>(rebin_buffer,rebinned_size,std::string(buf));
-    */
+    
     
     device_create_subints(rebin_buffer, output.get_data(), nbins,
 			  nbins*nints, nrots_per_subint, 
 			  max_blocks,max_threads);
+    */
     /*
     sprintf(buf,"/lustre/projects/p002_swin/ebarr/GPUSEEK_TESTS/ints_%.9f_%d.bin\0",period,nbins);
     Utils::dump_device_buffer<float>(output.get_data(),nbins*nints,std::string(buf));
@@ -278,7 +294,7 @@ public:
     Utils::dump_host_buffer<float>(opt_prof,nbins,std::string(buf));
     printf("prof_%.9f_%d.bin w:%d   sn1:%f   sn2:%f\n",p,nbins,opt_template+1,sn1,sn2);
     */
-    
+
     fold.set_opt_period(p*(((opt_shift*p)/(nbins*tobs))+1));
     fold.set_opt_width(opt_template+1);
     fold.set_opt_bin(opt_bin);
@@ -315,7 +331,6 @@ private:
     DevicePowerSpectrum<float> pspec(d_fseries);
     int nbins = 64;
     int nints = 16;
-    float min_period = 0.00099;
     float stretch = tsamp/(min_period/64);
     TimeSeriesFolder folder(nsamps*stretch);
     float period;

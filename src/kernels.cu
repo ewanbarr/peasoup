@@ -5,6 +5,7 @@
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/transform_reduce.h>
 #include <thrust/reduce.h>
+#include <thrust/sort.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/device_vector.h>
@@ -25,52 +26,32 @@
 //Could be optimised with registers
 __global__ 
 void harmonic_sum_kernel_generic(float *d_idata, float *d_odata,
-				 int gulp_index, int size, int harmonic, 
+				 int gulp_index, size_t size, int harmonic, 
 				 float one_over_sqrt_harm)
 {
   float val;
-  int Index = blockIdx.x * blockDim.x + threadIdx.x;
-  if(Index<size) 
+  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_index;
+  if(idx<size) 
     {
-      val = d_idata[gulp_index+Index];
+      val = d_idata[idx];
       for(int i = 1; i < harmonic; i++)
-        {
-	  val += d_idata[int((i*(gulp_index+Index))/harmonic+0.5)];
-        }
-      d_odata[gulp_index+Index] = val * one_over_sqrt_harm;
+	val += d_idata[int((i*idx)/harmonic+0.5)];
+      d_odata[idx] = val * one_over_sqrt_harm;
     }
   return;
 }
 
 void device_harmonic_sum(float* d_input_array, float* d_output_array,
-			 int original_size, int harmonic, 
-			 unsigned int max_blocks, unsigned int max_threads)
+                         size_t size, int harmonic,
+                         unsigned int max_blocks, unsigned int max_threads)
 {
-  int gulps;
-  int gulp_counter;
-  int gulp_index = 0;
-  int gulp_size;
-  int blocks = 0;
   float one_over_sqrt_harm = 1.0f/sqrt((float)harmonic);
-  gulps = original_size/(max_blocks*max_threads)+1;
-  for(gulp_counter = 0; gulp_counter<gulps; gulp_counter++)
-    {
-      if(gulp_counter<gulps-1)
-        {
-          gulp_size = max_blocks*max_threads;
-        }
-      else
-        {
-          gulp_size = original_size - gulp_counter*max_blocks*max_threads;
-        }
-      blocks = (gulp_size-1)/MAX_THREADS + 1;
-      harmonic_sum_kernel_generic<<<blocks,max_threads>>>(d_input_array,d_output_array,
-							  gulp_index,gulp_size,harmonic,
-							  one_over_sqrt_harm);
-      gulp_index = gulp_index + blocks*max_threads;
-    }
+  BlockCalculator calc(size, max_blocks, max_threads);
+  for (int ii=0;ii<calc.size();ii++)
+    harmonic_sum_kernel_generic<<<calc[ii].blocks,max_threads>>>
+      (d_input_array,d_output_array,calc[ii].data_idx,
+       size,harmonic,one_over_sqrt_harm);
   ErrorChecker::check_cuda_error("Error from device_harmonic_sum");
-  return;
 }
 
 //------------spectrum forming--------------//
@@ -79,38 +60,40 @@ void device_harmonic_sum(float* d_input_array, float* d_output_array,
 //Could be optimised with shared memory
 
 __global__ 
-void power_series_kernel(cufftComplex *d_idata,float* d_odata, int size)
+void power_series_kernel(cufftComplex *d_idata, float* d_odata, 
+			 size_t size, size_t gulp_index)
 {
-  int Index = blockIdx.x * blockDim.x + threadIdx.x;
-  cufftComplex& x = d_idata[Index];
-  if(Index<size)
+  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_index;
+  cufftComplex& x = d_idata[idx];
+  if(idx<size)
     {
       float z = x.x*x.x+x.y*x.y;
-      d_odata[Index] = z*rsqrtf(z);
+      d_odata[idx] = z*rsqrtf(z);
     }
   return;
 }
 
 //Could be optimised with shared memory
 
-__global__ void bin_interbin_series_kernel(cufftComplex *d_idata,float* d_odata, int size)
+__global__ void bin_interbin_series_kernel(cufftComplex *d_idata,float* d_odata, 
+					   size_t size, size_t gulp_index)
 {
   float* d_idata_float = (float*)d_idata;
-  int Index = blockIdx.x * blockDim.x + threadIdx.x;
+  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_index;
   float re_l =0.0;
   float im_l =0.0;
-  if (Index>0 && Index<size) {
-    re_l = d_idata_float[2*Index-2];
-    im_l = d_idata_float[2*Index-1];
+  if (idx>0 && idx<size) {
+    re_l = d_idata_float[2*idx-2];
+    im_l = d_idata_float[2*idx-1];
   }
-  if(Index<size)
+  if(idx<size)
     {
-      float re = d_idata_float[2*Index];
-      float im = d_idata_float[2*Index+1];
+      float re = d_idata_float[2*idx];
+      float im = d_idata_float[2*idx+1];
       float ampsq = re*re+im*im;
       float ampsq_diff = 0.5*((re-re_l)*(re-re_l) +
                               (im-im_l)*(im-im_l));
-      d_odata[Index] = sqrtf(max(ampsq,ampsq_diff));
+      d_odata[idx] = sqrtf(max(ampsq,ampsq_diff));
     }
   return;
 }
@@ -150,71 +133,36 @@ __global__ void bin_interbin_series_kernel(cufftComplex *d_idata,float* d_odata,
 
 void device_form_power_series(cufftComplex* d_array_in, 
 			      float* d_array_out,
-			      int size, int way)
+			      size_t size, int way,
+			      unsigned int max_blocks,
+			      unsigned int max_threads)
 {
-
-  if (way == 1 ){
-    BlockCalculator calc(size,MAX_BLOCKS,MAX_THREADS);
-    for (int ii=0;ii<calc.size();ii++)
-      bin_interbin_series_kernel<<<MAX_BLOCKS,MAX_THREADS>>>(d_array_in,d_array_out,size);
-  } else {
-    BlockCalculator calc(size,MAX_BLOCKS,MAX_THREADS);
-    for (int ii=0;ii<calc.size();ii++)
-      power_series_kernel<<<MAX_BLOCKS,MAX_THREADS>>>(d_array_in,d_array_out,size);
+  BlockCalculator calc(size,max_blocks,max_threads);
+  for (int ii=0;ii<calc.size();ii++){
+    if (way == 1)
+      bin_interbin_series_kernel<<<calc[ii].blocks,max_threads>>>
+        (d_array_in, d_array_out, size, calc[ii].data_idx);
+    else
+      power_series_kernel<<<calc[ii].blocks,max_threads>>>
+        (d_array_in, d_array_out, size, calc[ii].data_idx);
   }
   ErrorChecker::check_cuda_error("Error from device_form_power_series");
   return;
 }
 
-/*
-void device_form_power_series(cufftComplex* d_array_in, float* d_array_out,
-			      int size, int way)
-{
-  int gulps;
-  int gulp_counter;
-  cufftComplex* gulp_in_ptr = d_array_in;
-  float* gulp_out_ptr = d_array_out;
-  
-  int gulp_size;
-  
-  gulps = (size-1)/(MAX_BLOCKS*(MAX_THREADS))+1;
-
-  for(gulp_counter = 0; gulp_counter<gulps; gulp_counter++)
-    {
-      if(gulp_counter<gulps-1)
-        {
-          gulp_size = MAX_BLOCKS*(MAX_THREADS);
-        }
-      else
-        {
-          gulp_size = size - gulp_counter*MAX_BLOCKS*(MAX_THREADS);
-        }
-      if (way==0)
-        power_series_kernel<<<MAX_BLOCKS,MAX_THREADS>>>(gulp_in_ptr,gulp_out_ptr,gulp_size);
-      if (way==1){
-        bin_interbin_series_kernel<<<MAX_BLOCKS,MAX_THREADS>>>(gulp_in_ptr,gulp_out_ptr,gulp_size);
-	//bin_interbin_series_kernel<<<MAX_BLOCKS,MAX_THREADS,MAX_THREADS*sizeof(cufftComplex)>>>(gulp_in_ptr,gulp_out_ptr,gulp_size);
-      }
-      gulp_in_ptr = gulp_in_ptr + MAX_BLOCKS*(MAX_THREADS);
-      gulp_out_ptr = gulp_out_ptr + MAX_BLOCKS*(MAX_THREADS);
-    }
-  Utils::dump_device_buffer<cufftComplex>(d_array_in,size,"pre_bin_interbin2.bin");                                                                                                                                                                 
-  Utils::dump_device_buffer<float>(d_array_out,size,"post_bin_interbin2.bin");
-  return;
-}
-*/
 //-----------------time domain resampling---------------//
 
-inline __device__ unsigned long getAcceleratedIndex(double accel_fact, double size_by_2, unsigned long id){
-  return __double2ull_rn(id - accel_fact*( ((id-size_by_2)*(id-size_by_2)) - (size_by_2*size_by_2)));
+inline __device__ unsigned long getAcceleratedIndex(double accel_fact, double size_by_2,
+						    unsigned long id){
+  return __double2ull_rn(id + accel_fact*( ((id-size_by_2)*(id-size_by_2)) - (size_by_2*size_by_2)));
 }
 
 __global__ void resample_kernel(float* input_d,
 				float* output_d,
 				double accel_fact,
-				unsigned long size,
+				size_t size,
 				double size_by_2,
-				unsigned long start_idx)
+				size_t start_idx)
 {
   unsigned long idx = threadIdx.x + blockIdx.x * blockDim.x + start_idx;
   if (idx>=size)
@@ -223,57 +171,8 @@ __global__ void resample_kernel(float* input_d,
   output_d[idx] = input_d[idx_read];
 }
 
-/*
-inline __device__ double getAcceleratedIndex(double accel_fact, double size_by_2, unsigned long id){
-  return id - accel_fact*( ((id-size_by_2)*(id-size_by_2)) - (size_by_2*size_by_2));
-}
-
-
-//With interpolation
-__global__ void resample_kernel(float* input_d,
-                                float* output_d,
-                                double accel_fact,
-                                unsigned long size,
-                                double size_by_2,
-                                unsigned long start_idx)
-{
-  unsigned long idx = threadIdx.x + blockIdx.x * blockDim.x + start_idx;
-  if (idx>=size-1)
-    return;
-  double idx_read_frac = getAcceleratedIndex(accel_fact,size_by_2,idx);
-  unsigned long idx_read = __double2ull_rd(idx_read_frac);
-  double frac = idx_read_frac-idx_read;
-  output_d[idx] = input_d[idx_read]*(1.0-frac) + input_d[idx_read+1]*frac;
-}
-*/
-//Non cetralised stretch
-/*
-__global__ void GPU_resample_kernel(float *d_idata,float* d_odata, int size, float acc, double tsamp)
-{
-  double c = 2.99792458e8;
-  int Index = blockIdx.x * blockDim.x + threadIdx.x;
-  if (Index>=size-1)
-    return;
-  if (acc<=0.0) { // +ve acceleration                                                                                                       
-    double earthtime = Index * tsamp;
-    double delta = 0.5 * fabs(acc) * earthtime * earthtime/c/tsamp;
-    double ddelta = delta - (int) delta;
-    d_odata[Index]=d_idata[Index+(int)delta]*(1.0-ddelta)+
-      d_idata[Index+(int)delta+1]*ddelta;
-  }
-  if (acc>0.0){   // -ve acceleration                                                                                                            
-    double earthtime = Index * tsamp;
-    double delta = 0.5 * fabs(acc) * earthtime * earthtime/c/tsamp;
-    double ddelta = delta - (int) delta;
-    d_odata[Index] = d_idata[Index-(int)delta]*(ddelta)+
-      d_idata[Index-(int)delta+1]*(1.0-ddelta);
-  }
-  return;
-}
-*/
-
 void device_resample(float * d_idata, float * d_odata,
-		     unsigned int size, float a, 
+		     size_t size, float a, 
 		     float tsamp, unsigned int max_threads,
 		     unsigned int max_blocks)
 {
@@ -283,24 +182,11 @@ void device_resample(float * d_idata, float * d_odata,
   for (int ii=0;ii<calc.size();ii++)
     resample_kernel<<< calc[ii].blocks,max_threads >>>(d_idata, d_odata, 
 						       accel_fact,
-						       (unsigned long) size,
+						       size,
 						       size_by_2,
-						       (unsigned long) ii*max_threads*max_blocks);
+						       calc[ii].data_idx);
   ErrorChecker::check_cuda_error("Error from device_resample");
 }
-
-/*
-void device_resample(float * d_idata, float * d_odata,
-                     unsigned int size, float a,
-                     float tsamp, unsigned int max_threads,
-                     unsigned int max_blocks)
-{
-  BlockCalculator calc(size,max_blocks,max_threads);
-  for (int ii=0;ii<calc.size();ii++)
-    GPU_resample_kernel<<< calc[ii].blocks,max_threads >>>(d_idata, d_odata,
-							   (int) size, a, (double)tsamp);
-  ErrorChecker::check_cuda_error();
-  }*/
 
 //------------------peak finding-----------------//
 //defined here as (although Thrust based) requires CUDA functors
@@ -313,9 +199,9 @@ struct greater_than_threshold : thrust::unary_function<thrust::tuple<int,float>,
 };
 
 int device_find_peaks(int n, int start_index, float * d_dat,
-	     float thresh, int * indexes, float * snrs)
+		      float thresh, int * indexes, float * snrs)
 {
-
+  
   using thrust::tuple;
   using thrust::counting_iterator;
   using thrust::zip_iterator;
@@ -390,7 +276,8 @@ template float GPU_rms<float>(float*,int,int);
 template float GPU_mean<float>(float*,int,int);
 
 __global__
-void normalisation_kernel(float*d_powers, float mean, float sigma, unsigned int size, unsigned int gulp_idx)
+void normalisation_kernel(float*d_powers, float mean, float sigma, 
+			  size_t size, size_t gulp_idx)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
   if (idx>=size)
@@ -411,7 +298,7 @@ void device_normalise(float* d_powers,
   BlockCalculator calc(size, max_blocks, max_threads);
   for (int ii=0;ii<calc.size();ii++)
     normalisation_kernel<<<calc[ii].blocks,max_threads>>>(d_powers,mean,sigma,size,
-							  ii*max_blocks*max_threads);
+							  calc[ii].data_idx);
   ErrorChecker::check_cuda_error("Error from device_normalise");
 }
 
@@ -446,6 +333,145 @@ void device_normalise_spectrum(int nsamp,
 
 //--------------Time series folder----------------//
 
+/*
+__global__ void reindexing_kernel(float* i_data, float* o_data, size_t size, 
+				  size_t gulp_idx, double tsamp_by_period, 
+				  float nrots_per_subint)
+{
+  int nbins = 64;
+  __shared__ int idx_buffer_s[MAX_THREADS];
+  __shared__ float i_data_s[MAX_THREADS];
+  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;  
+  if (idx>=size)
+    return;
+  int bin = __float2int_rd(idx*nbins*tsamp_by_period)%nbins;
+  int subint = __float2int_rd((tsamp_by_period*idx)/nrots_per_subint);
+  int oidx = subint*nbins+bin;
+  idx_buffer_s[threadIdx.x] = oidx;
+  i_data_s[threadIdx.x] = i_data[idx];
+  __syncthreads();
+  float val = 0.0;
+  int count = 0;
+  for (int ii=0;ii<MAX_THREADS;ii++){
+    if (threadIdx.x==idx_buffer_s[ii]){
+      val += i_data_s[ii];
+      count++;
+    }
+  }
+  if (count!=0)
+    o_data[threadIdx.x] += val/count;
+}
+*/
+
+__global__ void reindexing_kernel(size_t size, int* new_indexes, int nbins,
+				   size_t gulp_idx, double tsamp_by_period,
+				   float nrots_per_subint)
+{
+  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
+  if (idx>=size)
+    return;
+  int bin = __float2int_rd(idx*nbins*tsamp_by_period)%nbins;
+  int subint = __float2int_rd((tsamp_by_period*idx)/nrots_per_subint);
+  int oidx = subint*nbins+bin;
+  new_indexes[idx] = oidx;
+}
+
+__global__ void find_switch_points_kernel(int* indexes, size_t size, int* switch_ar, size_t gulp_idx)
+{
+  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
+  
+  if (idx>=size-1)
+    return;
+  
+  if (idx == 0){
+    switch_ar[0] = 0;
+    return;
+  }
+  
+  if (indexes[idx] != indexes[idx+1]){
+    switch_ar[indexes[idx+1]] = idx+1;
+  } 
+  
+}
+
+__global__ void bin_timeseries_kernel(float* tim, float* output, int* switch_points, unsigned int size)
+{
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx>=size)
+    return;
+  int end;
+  int start = switch_points[idx];
+  
+  if (idx==size-1)
+    end = size;
+  else
+    end = switch_points[idx+1];
+  
+  int count = end-start;
+  float val = 0.0;
+  for (int ii=start;ii<end;ii++)
+    val += tim[ii];
+  if (count!=0)
+    output[idx] = val/count;
+  else
+    output[idx] = 0;
+}
+
+void device_fold_timeseries(float* tim_buffer, float* sorted_tim_buffer,
+			    float* subints_buffer, int* new_indexes_buffer,
+			    size_t size, unsigned int nbins, unsigned int nints,
+			    double period, double tsamp, unsigned int max_blocks,
+			    unsigned int max_threads)
+{
+  int ii;
+  int* switch_points;
+  Utils::device_malloc<int>(&switch_points,nbins*nints);
+  Utils::d2dcpy(sorted_tim_buffer,tim_buffer,size);
+  double tsamp_by_period = tsamp/period;
+  double nrots_per_subint = (size*tsamp)/period/nints;
+  
+  BlockCalculator calc(size, max_blocks, max_threads);
+  for (ii=0;ii<calc.size();ii++)
+    reindexing_kernel<<<calc[ii].blocks,max_threads>>>(size,new_indexes_buffer,nbins,calc[ii].data_idx,
+							tsamp_by_period, nrots_per_subint);
+  ErrorChecker::check_cuda_error("Error from reindexing_kernel.");
+  
+  thrust::device_ptr<int>   th_new_idx_ptr(new_indexes_buffer);
+  thrust::device_ptr<float> th_sorted_tim_ptr(sorted_tim_buffer);
+  thrust::sort_by_key(th_new_idx_ptr,th_new_idx_ptr+size,th_sorted_tim_ptr);
+  for (ii=0;ii<calc.size();ii++)
+    find_switch_points_kernel<<<calc[ii].blocks,max_threads>>>(new_indexes_buffer, size,
+							       switch_points, calc[ii].data_idx);
+  ErrorChecker::check_cuda_error("Error from find_switch_points_kernel.");
+    
+  BlockCalculator calc2(nbins*nints, max_blocks, max_threads);
+  for (ii=0;ii<calc2.size();ii++)
+    bin_timeseries_kernel<<<calc2[ii].blocks,max_threads>>>(sorted_tim_buffer, subints_buffer,
+							    switch_points, nbins*nints);
+  ErrorChecker::check_cuda_error("Error from bin_time_series_kernel.");
+  Utils::device_free(switch_points);
+}
+
+
+/*
+void device_fold_timeseries(float* i_data, float* o_data, 
+			    size_t size, unsigned int nbins, unsigned int nints,
+			    double period, double tsamp, unsigned int max_blocks,
+			    unsigned int max_threads)
+{
+  thrust::device_ptr<float> ptr(o_data);
+  thrust::fill(ptr,ptr+nbins*nints,0.0);
+  double tsamp_by_period = tsamp/period;
+  double nrots_per_subint = (size*tsamp)/period/nints;
+  BlockCalculator calc(size, max_blocks, max_threads);
+  for (int ii=0;ii<calc.size();ii++){
+    reindexing_kernel<<<calc[ii].blocks,max_threads>>>(i_data, o_data, size, calc[ii].data_idx, 
+						       tsamp_by_period, nrots_per_subint); 
+  }
+}
+*/
+
+/*
 __global__ 
 void interpolated_rebin_time_series_kernel(float* i_data, float* o_data,
 					   unsigned int size, float tsamp,
@@ -473,6 +499,38 @@ void interpolated_rebin_time_series_kernel(float* i_data, float* o_data,
     o_data[oidx+threadIdx.x] = y0 + (y1-y0)*((x-x0)/(x1-x0));
   }
 }
+*/
+__global__
+void interpolated_rebin_time_series_kernel(float* i_data, float* o_data,
+                                           unsigned int size, float tsamp,
+                                           float period, unsigned int nbins,
+                                           unsigned int gulp_idx,
+                                           unsigned int in_size, float frac)
+{
+  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
+    
+  if (idx==0){
+    o_data[idx]=i_data[idx];
+    return;
+  }
+  else if (idx>=size)
+    return;
+  
+  float x = idx*frac;
+  int x0 = __float2int_rd(x);
+  int x1 = x0+1;
+  
+  if (x1 >= in_size || x0 >= in_size)
+    return;
+  
+  float y0 = i_data[x0];
+  float y1 = i_data[x1];
+
+  o_data[idx] = y0 + (y1-y0)*((x-x0)/(x1-x0));
+  
+}
+
+  
 
 
 __global__ 
@@ -541,50 +599,30 @@ void device_create_subints(float* input, float* output,
   ErrorChecker::check_cuda_error("Error from device_create_subints");
 }
 
-
 void device_rebin_time_series(float* input, float* output,
-			      float period, float tsamp,
-			      unsigned int in_size, unsigned int out_size,
-			      unsigned int nbins,
-			      unsigned int max_blocks, unsigned int max_threads)
+                              double period, double tsamp,
+                              size_t in_size, size_t out_size,
+                              unsigned int nbins,
+                              unsigned int max_blocks, unsigned int max_threads)
 {
-  unsigned int gulps;
-  unsigned int gulp_counter;
-  unsigned int gulp_index = 0;
-  unsigned int gulp_size;
-  unsigned int blocks = 0;
-  float frac = period/tsamp/nbins;
-  
-  gulps = out_size/(max_blocks*max_threads)+1;
-  for (gulp_counter = 0; gulp_counter<gulps; gulp_counter++)
-    {
-      if (gulp_counter<gulps-1)
-	{
-	  gulp_size = max_blocks*max_threads;
-	  blocks = max_blocks;
-	}
-      else
-	{
-	  gulp_size = out_size-gulp_counter*max_blocks*max_threads;
-	  blocks = (gulp_size-1)/max_threads+1;
-	}
-      gulp_index = gulp_counter*blocks*max_threads;
-      
-      if (frac < 1.0){
-	//the +4 below is a accounts for a potential rounding error in the 
-	//rebinning kernel and should be left as is. Saftey first.
-	int shared_mem_size = (int)(max_threads*frac+4)*sizeof(float);
-	interpolated_rebin_time_series_kernel<<<blocks,max_threads,shared_mem_size>>>(input,output,out_size,
-										      tsamp,period,nbins,
-										      gulp_index,in_size,frac);
-      } else {
-	rebin_time_series_kernel<<<blocks,max_threads>>>(input,output,out_size,
-							 tsamp,period,nbins,
-							 gulp_index,in_size);
-	
-      }
-      ErrorChecker::check_cuda_error("Error from device_rebin_time_series");
-    }
+  double frac = period/tsamp/nbins;
+  //the +4 below is a accounts for a potential rounding error in the
+  //rebinning kernel and should be left as is. Saftey first.
+  //int shared_mem_size = (int)(max_threads*frac+4)*sizeof(float);
+  BlockCalculator calc(out_size, max_blocks, max_threads);
+  for (int ii=0;ii<calc.size();ii++){
+    if (frac < 1.0)
+      interpolated_rebin_time_series_kernel
+	<<<calc[ii].blocks,max_threads>>>(input,output,out_size,
+					  (float)tsamp,(float)period,nbins,
+					  calc[ii].data_idx,in_size,frac);
+    else 
+      rebin_time_series_kernel
+	<<<calc[ii].blocks,max_threads>>>(input,output,out_size,
+					  (float)tsamp,(float)period,nbins,
+					  calc[ii].data_idx,in_size);
+  }
+  ErrorChecker::check_cuda_error("Error from device_rebin_time_series");
 }
 
 //--------------FoldOptimiser------------//
@@ -615,7 +653,6 @@ void shift_array_generator_kernel(cuComplex* shift_ar, unsigned int shift_ar_siz
   float ramp = bin*two_pi/nbins;
   if (bin>nbins/2)
     ramp-=two_pi;
-  //printf("%f %f %f\n",ramp,shift,ramp*shift);
   cuComplex tmp1 = make_cuComplex(0.0,-1*ramp*shift);
   cuComplex tmp2 = cuCexpf(tmp1);
   shift_ar[idx] = tmp2;
@@ -638,7 +675,7 @@ void multiply_by_shift_kernel(cuComplex* input, cuComplex* output,
 			      cuComplex* shift_array, unsigned int nbins_by_nints,
 			      unsigned int size)
 {
-  int idx = blockIdx.x * blockDim.x + threadIdx.x; //NEED DATA IDX IF MULTIPLE GULPS
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx>=size)
     return;
   unsigned int in_idx = idx%(nbins_by_nints);
@@ -984,8 +1021,7 @@ void zap_birdies_kernel(cuComplex* fseries, float* birdies, float* widths,
   float width = widths[idx];
   int low_bin = __float2int_rd((freq-width)/bin_width);
   int high_bin = __float2int_ru((freq+width)/bin_width);
-  //printf("%f  %f  %f   %d  %d  %d\n",freq,width,bin_width,idx,low_bin,high_bin);
-
+  
   if (low_bin<0)
     low_bin = 0;
   if (low_bin>=fseries_size)
@@ -1006,3 +1042,163 @@ void device_zap_birdies(cuComplex* fseries, float* d_birdies, float* d_widths, f
   ErrorChecker::check_cuda_error("Error from device_zap_birdies");
   return;
 }
+
+//--------------coincidence matching--------------//
+
+__global__ 
+void coincidence_kernel(float** arrays, float* out_array,
+			int narrays, size_t size,
+			float thresh, int beam_thresh)
+{
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int count = 0;
+  for (int ii=0;ii<narrays;ii++)
+    if (arrays[ii][idx]>thresh)
+      count++;
+  out_array[idx] = (count<beam_thresh);
+}
+
+void device_coincidencer(float** arrays, float* out_array, 
+			 int narrays, size_t size,
+			 float thresh, int beam_thresh,
+			 unsigned int max_blocks, 
+			 unsigned int max_threads)
+{
+  
+  BlockCalculator calc(size, max_blocks, max_threads);
+  for (int ii=0;ii<calc.size();ii++)
+    coincidence_kernel<<<calc[ii].blocks,max_threads>>>
+      (arrays,out_array,narrays,size,thresh,beam_thresh);
+  ErrorChecker::check_cuda_error("Error from device_coincidencer");
+  return;
+  
+}
+
+//--------Correlation tools--------//
+
+__global__ void conjugate_kernel(cufftComplex* x, unsigned int size, 
+				 unsigned int gulp_idx){
+  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
+  if (idx<size)
+    x[idx].y *= -1.0;
+}
+
+void device_conjugate(cufftComplex* x, unsigned int size,
+		      unsigned int max_blocks,
+		      unsigned int max_threads)
+{
+  BlockCalculator calc(size, max_blocks, max_threads);
+  for (int ii=0;ii<calc.size();ii++)
+    conjugate_kernel<<<calc[ii].blocks,max_threads>>>(x,size,calc[ii].data_idx);
+  ErrorChecker::check_cuda_error("Error from device_conjugate");
+  return;
+}
+
+__global__ void cuCmulf_inplace_kernel(cufftComplex* x, cufftComplex* y, 
+						unsigned int size, unsigned int gulp_idx){
+  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
+  if (idx<size)
+    y[idx] = cuCmulf(x[idx],y[idx]);
+}
+
+void device_cuCmulf_inplace(cufftComplex* x, cufftComplex* y,
+			    unsigned int size,
+			    unsigned int max_blocks,
+			    unsigned int max_threads)
+{
+  BlockCalculator calc(size, max_blocks, max_threads);
+  for (int ii=0;ii<calc.size();ii++)
+    cuCmulf_inplace_kernel<<<calc[ii].blocks,max_threads>>>(x,y,size,calc[ii].data_idx);
+  ErrorChecker::check_cuda_error("Error from device_cuCmulf_inplace");
+  return;
+}
+
+//--------type converter--------//
+//This is to get around the stupid thrust copy issue
+
+template <class X,class Y> __global__
+void conversion_kernel(X* x, Y* y, unsigned int size,
+                       unsigned int gulp_idx)
+{
+  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
+  if (idx<size)
+    y[idx] = x[idx];
+  return;
+}
+
+template __global__ void conversion_kernel<char,float>(char*,float*,unsigned int,unsigned int);
+template __global__ void conversion_kernel<unsigned char,float>(unsigned char*,float*,unsigned int,unsigned int);
+
+template <class X,class Y>
+void device_conversion(X* x, Y* y, unsigned int size,
+                       unsigned int max_blocks,
+                       unsigned int max_threads)
+{
+  BlockCalculator calc(size, max_blocks, max_threads);
+  for (int ii=0;ii<calc.size();ii++)
+    conversion_kernel<X,Y> <<<calc[ii].blocks,max_threads>>>(x,y,size,calc[ii].data_idx);
+  ErrorChecker::check_cuda_error("Error from device_conversion");
+  return;
+}
+
+template void device_conversion<char,float>(char*, float*, unsigned int, unsigned int, unsigned int);
+template void device_conversion<unsigned char,float>(unsigned char*, float*, unsigned int, unsigned int, unsigned int);
+
+//--------FIR delays--------//
+/*
+__global__
+void fir_kernel(char* input, char* output, 
+		size_t input_size, cuComplex* fir,
+		unsigned int fir_size)
+{
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int data_idx = 2*(idx - (blockIdx.x * fir_size));
+  unsigned int fsize_by_2 = fir_size/2;
+    
+  __shared__ cuComplex* cdata[MAX_THREADS];
+  
+  char real = input[data_idx];
+  char imag = input[data_idx+1];
+  cdata[threadIdx.x] = make_cuComplex((float) real+0.5, (float) imag+0.5);
+  __syncthreads();
+  
+  if (data_idx >= input_size)
+    return;
+  
+  int start,end;
+  
+  if (data_idx < fir_size){
+    start = fir_size-data_idx;
+    end = fir_size;
+    
+
+  }
+
+  else if (threadIdx.x<fsize_by_2)
+    return;
+  
+  else if (data_idx+fir_size >= input_size){
+    start = 0;
+    end = input_size-data_idx;
+  }
+  else if (threadIdx.x > MAX_THREADS-fsize_by_2)
+    return;
+
+  else {						
+    start = 0;
+    end = fir_size;
+  }
+  cuComplex val = make_cuComplex(0.0,0.0);
+  
+  for (int ii=start; ii<end; ii++)
+    val += cuCmulf(fdata[threadIdx.x+ii],fir[ii]);
+  
+  //convert back to char*
+  
+  output[data_idx] = real_char;
+  output[data_idx+1] = imag_char;
+  
+
+}
+
+*/

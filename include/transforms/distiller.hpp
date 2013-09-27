@@ -78,10 +78,12 @@ private:
     for (ii=idx+1;ii<size;ii++){
       freq = cands[ii].freq;
       nh = cands[ii].nh;
-
+      
+      /*
       if (cands[ii].nh > cands[idx].nh){
         continue;
-      }
+	}
+      */
 
       if (fractional_harms)
 	max_denominator = pow(2.0,nh);
@@ -130,9 +132,10 @@ private:
     double delta_acc;
     double edge = fundi_freq*tolerance;
     for (ii=idx+1;ii<size;ii++){
+      /*
       if (cands[ii].nh > cands[idx].nh){
 	continue;
-      }
+	}*/
 
       delta_acc = fundi_acc-cands[ii].acc;
       acc_freq = correct_for_acceleration(fundi_freq,delta_acc);
@@ -174,10 +177,10 @@ private:
     double upper_tol = 1+tolerance;
     double lower_tol = 1-tolerance;
     for (ii=idx+1;ii<size;ii++){
-      
+      /*
       if (cands[ii].nh > cands[idx].nh){
         continue;
-      }
+	}*/
       
       ratio = cands[ii].freq/fundi_freq;
       if (ratio>(lower_tol)&&ratio<(upper_tol)){

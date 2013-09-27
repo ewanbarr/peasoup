@@ -1,4 +1,3 @@
-
 include Makefile.inc
 
 # Output directories                                                                                                                        
@@ -24,7 +23,7 @@ NVCCFLAGS  = ${OPTIMISE} ${NVCC_COMP_FLAGS} --machine 64 -Xcompiler ${DEBUG}
 CFLAGS    = -fPIC ${OPTIMISE} ${DEBUG}
 
 OBJECTS   = ${OBJ_DIR}/kernels.o
-EXE_FILES = ${BIN_DIR}/peasoup 
+EXE_FILES = ${BIN_DIR}/accmap
 
 all: directories ${OBJECTS} ${EXE_FILES}
 
@@ -32,6 +31,12 @@ ${OBJ_DIR}/kernels.o: ${SRC_DIR}/kernels.cu
 	${NVCC} -c ${NVCCFLAGS} ${INCLUDE} $<  -o $@
 
 ${BIN_DIR}/peasoup: ${SRC_DIR}/pipeline_multi.cpp ${OBJECTS}
+	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
+
+${BIN_DIR}/coincidencer: ${SRC_DIR}/coincidencer.cpp ${OBJECTS}
+	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
+
+${BIN_DIR}/accmap: ${SRC_DIR}/accmap.cpp ${OBJECTS}
 	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
 
 ${BIN_DIR}/rednoise: ${SRC_DIR}/rednoise_test.cpp ${OBJECTS}

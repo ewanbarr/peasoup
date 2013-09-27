@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <string>
 #include <sstream>
+#include <iostream>
 #include <execinfo.h>
 #include "dedisp.h"
 #include "cuda.h"

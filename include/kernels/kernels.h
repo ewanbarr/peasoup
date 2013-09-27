@@ -3,19 +3,21 @@
 
 void device_harmonic_sum(float* d_input_array,
 			 float* d_output_array,
-			 int original_size,
+			 size_t original_size,
 			 int harmonic,
 			 unsigned int max_blocks,
 			 unsigned int max_threads);
 
 void device_form_power_series(cufftComplex* d_array_in,
 			      float* d_array_out,
-			      int size,
-			      int way);
+			      size_t size,
+			      int way,
+			      unsigned int max_blocks,
+			      unsigned int max_threads);
 
 void device_resample(float * d_idata,
 		     float * d_odata,
-		     unsigned int length,
+		     size_t length,
 		     float a,
 		     float timestep,
 		     unsigned int block_size,
@@ -43,12 +45,25 @@ void device_normalise_spectrum(int nsamp,
 
 //------Folding related------//
 
+void device_fold_timeseries(float* tim_buffer, 
+			    float* sorted_tim_buffer,
+                            float* subints_buffer,
+			    int*new_indexes_buffer,
+                            size_t size,
+			    unsigned int nbins, 
+			    unsigned int nints,
+                            double period,
+			    double tsamp, 
+			    unsigned int max_blocks,
+                            unsigned int max_threads);
+
+/*
 void device_rebin_time_series(float* input,
 			      float* output,
-                              float period,
-			      float tsamp,
-                              unsigned int in_size, 
-			      unsigned int out_size,
+                              double period,
+			      double tsamp,
+                              size_t in_size, 
+			      size_t out_size,
                               unsigned int nbins,
                               unsigned int max_blocks,
 			      unsigned int max_threads);
@@ -60,7 +75,7 @@ void device_create_subints(float* input,
                            unsigned int nrots_per_subint,
                            unsigned int max_blocks,
                            unsigned int max_threads);
-
+*/
 //------GPU fold optimisation related-----//
 
 unsigned int device_argmax(float* input, 
@@ -185,3 +200,31 @@ template <typename T>
 void GPU_fill(T* start,
 	      T* end,
 	      T value);
+
+//----------coincidencer-----------//
+
+void device_coincidencer(float** arrays, 
+			 float* out_array,
+                         int narrays,
+			 size_t size,
+                         float thresh,
+			 int beam_thresh,
+                         unsigned int max_blocks,
+                         unsigned int max_threads);
+
+//-------correlation-----///
+
+void device_conjugate(cufftComplex* x, 
+		      unsigned int size,
+                      unsigned int max_blocks,
+                      unsigned int max_threads);
+
+void device_cuCmulf_inplace(cufftComplex* x, 
+			    cufftComplex* y,
+                            unsigned int size,
+                            unsigned int max_blocks,
+                            unsigned int max_threads);
+
+template <class X, class Y>
+void device_conversion(X*, Y*, unsigned int,
+		       unsigned int, unsigned int);

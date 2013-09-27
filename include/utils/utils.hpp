@@ -90,23 +90,24 @@ public:
 class Block {
 public:
   unsigned int blocks;
-  unsigned int data_idx;
+  size_t data_idx;
+  size_t gulp_size;
   
-  Block(unsigned int blocks, unsigned int data_idx)
-    :blocks(blocks),data_idx(data_idx){}
+  Block(unsigned int blocks, size_t data_idx, size_t gulp_size)
+    :blocks(blocks),data_idx(data_idx),gulp_size(gulp_size){}
 };
 
 class BlockCalculator {
 private:
-  unsigned int gulps;
-  unsigned int gulp_counter;
-  unsigned int gulp_index;
-  unsigned int gulp_size;
-  unsigned int blocks;
+  size_t gulps;
+  size_t gulp_counter;
+  size_t gulp_index;
+  size_t gulp_size;
+  size_t blocks;
   std::vector< Block > output;
 
 public:
-  BlockCalculator(unsigned int size,
+  BlockCalculator(size_t size,
                   unsigned int max_blocks,
                   unsigned int max_threads)
   {
@@ -121,7 +122,7 @@ public:
         blocks = (gulp_size-1)/max_threads+1;
       }
       gulp_index = gulp_counter*blocks*max_threads;
-      output.push_back(Block(blocks,gulp_index));
+      output.push_back(Block(blocks,gulp_index,gulp_size));
     }
   }
 
