@@ -13,6 +13,21 @@
 #include <kernels/kernels.h>
 #include <iostream>
 #include <algorithm>
+#include <stdio.h>
+
+class FringeFinder {
+private:
+  char* delay;
+
+
+};
+
+
+
+
+
+
+
 
 
 class DelayFinder {
@@ -33,10 +48,10 @@ public:
   void find_delays(uint max_delay){
     ReusableDeviceTimeSeries<float,char> x(size);
     ReusableDeviceTimeSeries<float,char> y(size);
-
+    
     TimeSeries<char> host_tim(size);
     char* host_tim_ptr = host_tim.get_data();
-
+    
     Utils::device_malloc<char>(&host_tim_ptr,size);
     cufftComplex* return_ptr;
 
@@ -46,8 +61,6 @@ public:
     Utils::host_malloc<float>(&abs_return_ptr,max_delay*2);
 
     for (int ii=0;ii<narrays;ii++){
-      //copy array ii to the device                                                                                                                                       
-      //convert to complex64                                                                                                                                              
       std::cout << "["<<ii<<"] ";
       host_tim.set_data(&arrays[ii*size]);
       x.copy_from_host(host_tim);
@@ -65,7 +78,9 @@ public:
 	Utils::d2hcpy<cufftComplex>(return_ptr+max_delay, (cufftComplex*) y.get_data()+(complex_size-max_delay),max_delay);
         for (int kk=0;kk<max_delay*2;kk++){
           abs_return_ptr[kk] = std::pow(return_ptr[kk].x,2) + std::pow(return_ptr[kk].y,2);
-        }
+	  //printf("%.5f\n", abs_return_ptr[kk]);
+	}
+	
 
         int distance = std::distance(abs_return_ptr,std::max_element(abs_return_ptr,abs_return_ptr+max_delay*2));
 	std::cout << "Distance:" << distance << std::endl;

@@ -23,7 +23,7 @@ NVCCFLAGS  = ${OPTIMISE} ${NVCC_COMP_FLAGS} --machine 64 -Xcompiler ${DEBUG}
 CFLAGS    = -fPIC ${OPTIMISE} ${DEBUG}
 
 OBJECTS   = ${OBJ_DIR}/kernels.o
-EXE_FILES = ${BIN_DIR}/accmap
+EXE_FILES = ${BIN_DIR}/peasoup
 
 all: directories ${OBJECTS} ${EXE_FILES}
 

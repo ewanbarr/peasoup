@@ -125,6 +125,10 @@ public:
   {
     cudaSetDevice(device);
 
+
+    Stopwatch pass_timer;
+    pass_timer.start();
+
     bool padding = false;
     if (size > trials.get_nsamps())
       padding = true;
@@ -176,6 +180,9 @@ public:
 	std::cout << "Generating accelration list" << std::endl;
       acc_plan.generate_accel_list(tim.get_dm(),acc_list);
       
+      if (args.verbose)
+	std::cout << "Searching "<< acc_list.size()<< " acceleration trials for DM "<< tim.get_dm() << std::endl;
+
       if (args.verbose)
 	std::cout << "Executing forward FFT" << std::endl;
       r2cfft.execute(d_tim.get_data(),d_fseries.get_data());
@@ -250,6 +257,9 @@ public:
 
     if (args.zapfilename!="")
       delete bzap;
+    
+    if (args.verbose)
+      std::cout << "DM processing took " << pass_timer.getTime() << " seconds"<< std::endl;
   }
   
 };
@@ -450,6 +460,7 @@ int main(int argc, char **argv)
   AccelerationPlan acc_plan(args.acc_start, args.acc_end, args.acc_tol,
 			    args.acc_pulse_width, size, filobj.get_tsamp(),
 			    filobj.get_cfreq(), filobj.get_foff()); 
+  
   
   //Multithreading commands
   

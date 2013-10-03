@@ -1,4 +1,5 @@
 #pragma once
+#define DADA_HDR_SIZE 4096L
 
 /*
   These functions replicate the functionality of sigproc's
@@ -14,6 +15,97 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <sstream>
+#include <vector>
+#include <stdlib.h>
+
+struct DadaHeader {
+  float header_version;
+  uint header_size;
+  double bw;
+  double freq;
+  uint nant;
+  uint nchan;
+  uint ndim;
+  uint npol;
+  uint nbit;
+  double tsamp;
+  double osamp_ratio;
+  std::string source_name;
+  std::string ra;
+  std::string dec;
+  std::string proc_file;
+  std::string mode;
+  std::string observer;
+  std::string pid;
+  size_t obs_offset;
+  std::string telescope;
+  std::string instrument;
+  size_t dsb;
+  size_t filesize;
+  size_t dada_filesize;
+  size_t nsamples;
+  size_t bytes_per_sec;
+  std::string utc_start;
+  uint ant_id;
+  uint file_no;
+  
+  std::string get_value(std::string name,std::stringstream& header){
+    size_t position = header.str().find(name);
+    if (position!=std::string::npos){
+      header.seekg(position+name.length());
+      std::string value;
+      header >> value;
+      return value;
+    } else {
+      return "";
+    }
+  }
+
+  DadaHeader(){};
+  
+  void fromfile(std::string filename){
+    std::ifstream infile(filename.c_str());
+    std::vector<char> buf(DADA_HDR_SIZE);
+    infile.read(&buf[0],DADA_HDR_SIZE);
+    std::stringstream header;
+    header.rdbuf()->pubsetbuf(&buf[0],DADA_HDR_SIZE);
+    infile.seekg(0,infile.end);
+    filesize       = (size_t) infile.tellg() - (size_t) DADA_HDR_SIZE;
+    header_version = atof(get_value("HDR_VERSION ",header).c_str());
+    header_size    = atoi(get_value("HDR_SIZE ",header).c_str());
+    bw             = atoi(get_value("BW ",header).c_str());
+    freq           = atof(get_value("FREQ ",header).c_str());
+    nant           = atoi(get_value("NANT ",header).c_str());
+    nchan          = atoi(get_value("NCHAN ",header).c_str());
+    ndim           = atoi(get_value("NDIM ",header).c_str());
+    npol           = atoi(get_value("NPOL ",header).c_str());
+    nbit           = atoi(get_value("NBIT ",header).c_str());
+    tsamp          = atof(get_value("TSAMP ",header).c_str());
+    osamp_ratio    = atof(get_value("OSAMP_RATIO ",header).c_str());
+    source_name    = get_value("SOURCE ",header);
+    ra             = get_value("RA ",header);
+    dec            = get_value("DEC ",header);
+    proc_file      = get_value("PROC_FILE ",header);
+    mode           = get_value("MODE ",header);
+    observer       = get_value("OBSERVER ",header);
+    pid            = get_value("PID ",header);
+    obs_offset     = atoi(get_value("OBS_OFFSET ",header).c_str());
+    telescope      = get_value("TELESCOPE ",header);
+    instrument     = get_value("INSTRUMENT ",header);
+    dsb            = atoi(get_value("DSB ",header).c_str());
+    dada_filesize  = atoi(get_value("FILE_SIZE ",header).c_str());
+    nsamples       = filesize/nchan/nant/npol/2.;
+    bytes_per_sec  = atoi(get_value("BYTES_PER_SECOND ",header).c_str());
+    utc_start      = get_value("UTC_START ",header);
+    ant_id         = atoi(get_value("ANT_ID ",header).c_str());
+    file_no        = atoi(get_value("FILE_NUMBER ",header).c_str());
+    infile.close();
+  }
+};  
+
+  
+
 
 struct SigprocHeader {
   std::string source_name;
