@@ -160,6 +160,7 @@ public:
     tsamp_us = 1.0e6 * tsamp;
     tobs = nsamps*tsamp;
     cfreq_GHz = 1.0e-3 * cfreq;
+    pulse_width /= 1.0e3;
   }
   
   void generate_accel_list(float dm,std::vector<float>& acc_list){

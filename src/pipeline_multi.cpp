@@ -30,7 +30,7 @@
 
 struct CmdLineOptions {
   std::string infilename;
-  std::string output_directory;
+  std::string outfilename;
   std::string killfilename;
   std::string zapfilename;
   int max_num_threads;
@@ -281,9 +281,9 @@ int main(int argc, char **argv)
 						  "File to process (.fil)",
 						  true, "", "string", cmd);
       
-      TCLAP::ValueArg<std::string> arg_output_directory("o", "outputfile",
+      TCLAP::ValueArg<std::string> arg_outfilename("o", "outputfile",
 							"The output filename",
-							false, "./", "string",cmd);
+							false, "./candidates.txt", "string",cmd);
       
       TCLAP::ValueArg<std::string> arg_killfilename("k", "killfile",
                                                    "Channel mask file",
@@ -331,7 +331,7 @@ int main(int argc, char **argv)
 
       TCLAP::ValueArg<float> arg_acc_pulse_width("", "acc_pulse_width",
 						 "Minimum pulse width for which acc_tol is valid",
-                                                false, 64.0, "float (ms)",cmd);
+                                                false, 64.0, "float (us)",cmd);
             
       TCLAP::ValueArg<float> arg_boundary_5_freq("", "boundary_5_freq",
 						 "Frequency at which to switch from median5 to median25",
@@ -371,7 +371,7 @@ int main(int argc, char **argv)
 
       cmd.parse(argc, argv);
       args.infilename        = arg_infilename.getValue();
-      args.output_directory  = arg_output_directory.getValue();
+      args.outfilename       = arg_outfilename.getValue();
       args.killfilename      = arg_killfilename.getValue();
       args.zapfilename       = arg_zapfilename.getValue();
       args.max_num_threads   = arg_max_num_threads.getValue();
@@ -504,11 +504,11 @@ int main(int argc, char **argv)
 
   if (args.verbose)
     std::cout << "Folding top 3000 cands" << std::endl;
-  //folder.fold_n(3000);
+  folder.fold_n(3000);
 
   if (args.verbose)
     std::cout << "Writing output files" << std::endl;
-  dm_cands.write_candidate_file(args.output_directory);
+  dm_cands.write_candidate_file(args.outfilename);
   
   return 0;
 }
