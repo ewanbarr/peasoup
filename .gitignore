@@ -1,8 +1,6 @@
 # Previous versions
 *~
-unit_tests/
 bin/
-tools/
 obj/
 
 # Compiled Object files
