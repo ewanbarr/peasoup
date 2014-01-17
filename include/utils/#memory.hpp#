@@ -1,9 +1,0 @@
-#include "cuda.h"
-#include <utils/exceptions.hpp>
-
-class DeviceMemory {
-public:
-  template <class T>
-  static allocate(T** ptr,)
-
-}
