@@ -24,6 +24,7 @@
 //--------------Harmonic summing----------------//
 
 //Could be optimised with registers
+/*
 __global__ 
 void harmonic_sum_kernel_generic(float *d_idata, float *d_odata,
 				 int gulp_index, size_t size, int harmonic, 
@@ -40,17 +41,50 @@ void harmonic_sum_kernel_generic(float *d_idata, float *d_odata,
     }
   return;
 }
+*/
 
+__global__
+void harmonic_sum_kernel(float *d_idata, float *d_odata,
+			 int gulp_index, size_t size, int harmonic,
+			 float one_over_sqrt_harm)
+{
+  for( int idx = blockIdx.x*blockDim.x + threadIdx.x ; idx < size ; idx += blockDim.x*gridDim.x )
+    {
+      double idx_div_harmonic = (double) idx / harmonic, i_as_dbl = 1.0;
+      
+      float val = d_idata[idx];
+      for( int i = 1 ; i < harmonic ; ++i, i_as_dbl += 1.0 )
+	val += d_idata[(int) (i_as_dbl*idx_div_harmonic + 0.5)];
+      d_odata[idx] = val*one_over_sqrt_harm;
+  }
+  return;
+}
+
+/* Old routine
 void device_harmonic_sum(float* d_input_array, float* d_output_array,
                          size_t size, int harmonic,
                          unsigned int max_blocks, unsigned int max_threads)
 {
   float one_over_sqrt_harm = 1.0f/sqrt((float)harmonic);
   BlockCalculator calc(size, max_blocks, max_threads);
-  for (int ii=0;ii<calc.size();ii++)
+  for (int ii=0;ii<calc.size();ii++){
     harmonic_sum_kernel_generic<<<calc[ii].blocks,max_threads>>>
       (d_input_array,d_output_array,calc[ii].data_idx,
        size,harmonic,one_over_sqrt_harm);
+  }
+  ErrorChecker::check_cuda_error("Error from device_harmonic_sum");
+}
+*/
+
+void device_harmonic_sum(float* d_input_array, float* d_output_array,
+			   size_t size, int harmonic,
+			   unsigned int max_blocks, unsigned int max_threads)
+{
+  float one_over_sqrt_harm = 1.0f/sqrt((float)harmonic);
+  BlockCalculator calc(size, max_blocks, max_threads);
+  harmonic_sum_kernel<<<calc[0].blocks,max_threads>>>
+    (d_input_array,d_output_array,0,
+     size,harmonic,one_over_sqrt_harm);
   ErrorChecker::check_cuda_error("Error from device_harmonic_sum");
 }
 
@@ -365,13 +399,16 @@ __global__ void reindexing_kernel(float* i_data, float* o_data, size_t size,
 
 __global__ void reindexing_kernel(size_t size, int* new_indexes, int nbins,
 				   size_t gulp_idx, double tsamp_by_period,
-				   float nrots_per_subint)
+				   double nrots_per_subint)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
   if (idx>=size)
     return;
-  int bin = __float2int_rd(idx*nbins*tsamp_by_period)%nbins;
-  int subint = __float2int_rd((tsamp_by_period*idx)/nrots_per_subint);
+
+  int subint = __double2int_rd((tsamp_by_period*idx)/nrots_per_subint);
+  int bin = __double2int_rd(idx*nbins*tsamp_by_period)%nbins;
+  //int bin = __float2int_rd(idx*nbins*tsamp_by_period)%nbins;
+  //int subint = __float2int_rd((tsamp_by_period*idx)/nrots_per_subint);
   int oidx = subint*nbins+bin;
   new_indexes[idx] = oidx;
 }
@@ -380,7 +417,7 @@ __global__ void find_switch_points_kernel(int* indexes, size_t size, int* switch
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
   
-  if (idx>=size-1)
+  if (idx>=size-2)
     return;
   
   if (idx == 0){
@@ -431,19 +468,25 @@ void device_fold_timeseries(float* tim_buffer, float* sorted_tim_buffer,
   double nrots_per_subint = (size*tsamp)/period/nints;
   
   BlockCalculator calc(size, max_blocks, max_threads);
-  for (ii=0;ii<calc.size();ii++)
+  
+  for (ii=0;ii<calc.size();ii++){
     reindexing_kernel<<<calc[ii].blocks,max_threads>>>(size,new_indexes_buffer,nbins,calc[ii].data_idx,
-							tsamp_by_period, nrots_per_subint);
+						       tsamp_by_period, nrots_per_subint);
+  }
   ErrorChecker::check_cuda_error("Error from reindexing_kernel.");
   
   thrust::device_ptr<int>   th_new_idx_ptr(new_indexes_buffer);
   thrust::device_ptr<float> th_sorted_tim_ptr(sorted_tim_buffer);
+
   thrust::sort_by_key(th_new_idx_ptr,th_new_idx_ptr+size,th_sorted_tim_ptr);
-  for (ii=0;ii<calc.size();ii++)
+  
+  for (ii=0;ii<calc.size();ii++){
     find_switch_points_kernel<<<calc[ii].blocks,max_threads>>>(new_indexes_buffer, size,
 							       switch_points, calc[ii].data_idx);
+  }
   ErrorChecker::check_cuda_error("Error from find_switch_points_kernel.");
-    
+  
+  
   BlockCalculator calc2(nbins*nints, max_blocks, max_threads);
   for (ii=0;ii<calc2.size();ii++)
     bin_timeseries_kernel<<<calc2[ii].blocks,max_threads>>>(sorted_tim_buffer, subints_buffer,
@@ -529,8 +572,6 @@ void interpolated_rebin_time_series_kernel(float* i_data, float* o_data,
   o_data[idx] = y0 + (y1-y0)*((x-x0)/(x1-x0));
   
 }
-
-  
 
 
 __global__ 

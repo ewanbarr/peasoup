@@ -61,13 +61,11 @@ public:
     output.set_tobs((float)tobs);
     unsigned int nbins = output.get_nbins();
     unsigned int nints = output.get_nints();
-    
-
 
     device_fold_timeseries(input.get_data(), sorted_tim_buffer, output.get_data(),
 			   new_indexes_buffer, input.get_nsamps(), nbins, nints,
 			   period, input.get_tsamp(), max_blocks, max_threads);
-    
+
     /*
     char buf[80];
     sprintf(buf,"/lustre/projects/p002_swin/ebarr/GPUSEEK_TESTS/tim_%.9f_%d.bin\0",period,nbins);
@@ -131,9 +129,12 @@ private:
   unsigned int max_blocks;
   unsigned int max_threads;
  
-  //Optimised profile;
+  //Optimised profile/subints;
+  cufftComplex* opt_subints_complex;
+  float* opt_subints;
   cufftComplex* opt_prof_complex;
   float* opt_prof;
+  
  
   void generate_templates(unsigned int step=1)
   {
@@ -165,43 +166,50 @@ private:
 				max_blocks, max_threads);
   }
     
-  void calculate_sn(float* prof, int bin, 
-		    unsigned int width, 
-		    unsigned int nbins,
-		    float* sn1, float* sn2)
-  {
-    //edge of pulse that will not be taken into account
-    int edge = 1;
-    if (width<=3)
-      edge = 0;
 
-    int ii;
-    float* onpulse;
-    float* offpulse;
-    int start = bin-width/2;
-    unsigned int op_width = nbins-width;
-    unsigned int op_width_t = op_width-2*edge;
-    unsigned int width_t = width-2*edge;
-    Utils::host_malloc<float>(&onpulse,width_t);
-    Utils::host_malloc<float>(&offpulse,op_width_t);
+  void calculate_sn(float* prof, int bin,
+                    unsigned int width,
+                    unsigned int nbins,
+                    float* sn1, float* sn2)
+  {
+    int edge       = (int) (width*0.3 + 0.5);
+    int width_by_2 = (int) (width/2.0 + 0.5);
+    int ii,jj;
+    std::vector<float> on_pulse;
+    std::vector<float> off_pulse;
+    std::vector<float> rprof;
     
-    //here we give one bins grace either side of the optimal width
-    for (ii=0;ii<width_t;ii++)
-      onpulse[ii] = prof[(start+ii+edge)%nbins];
-    for(ii=0;ii<op_width_t;ii++)
-      offpulse[ii] = prof[(start+ii+width+edge)%nbins];
-    float on_mean  = std::accumulate(onpulse,onpulse+width_t,0.0)/width_t;
-    float off_mean = std::accumulate(offpulse,offpulse+op_width_t,0.0)/op_width_t;
+    //centre the profile
+    for (ii=0;ii<nbins;ii++){
+      jj = (bin-nbins/2 + ii) % nbins;
+      rprof.push_back(prof[jj]);
+    }
+    bin = nbins/2-1;
+
+    int upper_edge = bin + (width_by_2+edge);
+    int lower_edge = bin - (width_by_2+edge);
+    
+    for (ii=0;ii<nbins;ii++){
+      if ((ii <= upper_edge) && (ii >= lower_edge))
+	on_pulse.push_back(rprof[ii]);
+      else
+	off_pulse.push_back(rprof[ii]);
+    }
+    
+    float on_mean  = std::accumulate(on_pulse.begin(),on_pulse.end(),0.0)/on_pulse.size();
+    float off_mean = std::accumulate(off_pulse.begin(),off_pulse.end(),0.0)/off_pulse.size();
     float acc = 0;
-    for (ii=0;ii<op_width_t;ii++)
-      acc += std::pow(offpulse[ii]-off_mean,2.0);
-    float off_std = std::sqrt(acc/op_width_t);
+    for (ii=0;ii<off_pulse.size();ii++)
+      acc += std::pow(off_pulse[ii]-off_mean,2.0);
+    float off_std = std::sqrt(acc/off_pulse.size());
     *sn1 = (on_mean-off_mean) * std::sqrt(width)/off_std;
-    std::transform(prof, prof+nbins, prof, std::bind2nd(std::minus<float>(),off_mean));
-    std::transform(prof, prof+nbins, prof, std::bind2nd(std::divides<float>(),off_std));
-    *sn2 = std::accumulate(prof,prof+nbins,0.0)/std::sqrt(width);
-    Utils::host_free(onpulse);
-    Utils::host_free(offpulse);
+    std::transform(&rprof[0], &rprof[0]+nbins, &rprof[0], std::bind2nd(std::minus<float>(),off_mean));
+    std::transform(&rprof[0], &rprof[0]+nbins, &rprof[0], std::bind2nd(std::divides<float>(),off_std));
+    *sn2 = std::accumulate(rprof.begin(),rprof.end(),0.0)/std::sqrt(width);
+    if (*sn1>99999)
+      *sn1 = 0.0;
+    if (*sn2>99999)
+      *sn2 = 0.0;
   }
 
 public:
@@ -221,7 +229,9 @@ public:
     Utils::device_malloc<cufftComplex>(&final_array_complex,nbins*nshifts*ntemplates);
     Utils::device_malloc<float>(&final_array_float,nbins*nshifts*ntemplates);
     Utils::host_malloc<cufftComplex>(&opt_prof_complex,nbins);
+    Utils::host_malloc<cufftComplex>(&opt_subints_complex,nbins*nints);
     Utils::host_malloc<float>(&opt_prof,nbins);
+    Utils::host_malloc<float>(&opt_subints,nbins*nints);
     forward_fft = new CuFFTerC2C(nbins,nints);
     inverse_fft = new CuFFTerC2C(nbins,nshifts*ntemplates);
     inverse_fft_profile = new CuFFTerC2C(nbins,1);
@@ -238,6 +248,8 @@ public:
     Utils::device_free(final_array_float);
     Utils::host_free(opt_prof);
     Utils::host_free(opt_prof_complex);
+    Utils::host_free(opt_subints_complex);
+    Utils::host_free(opt_subints);
     delete forward_fft;
     delete inverse_fft;
     delete inverse_fft_profile;
@@ -255,47 +267,97 @@ public:
       ErrorChecker::throw_error("FoldedSubints instance has wrong dimensions");
     
     float* tmp = fold.get_data();
-    device_real_to_complex(fold.get_data(),input_data,
+
+    device_real_to_complex(tmp,input_data,
 			   nbins*nints,max_blocks,max_threads);
+
+    //Utils::dump_device_buffer<cuComplex>(input_data,nbins*nints,"prefft.bin");
+
     forward_fft->execute(input_data,input_data,CUFFT_FORWARD);
+
+    //Utils::dump_device_buffer<cuComplex>(input_data,nbins*nints,"preshift.bin");
+
     device_multiply_by_shift(input_data, post_shift_input,
 			     shiftar, nbins*nints*nshifts,
 			     nbins*nints, max_blocks, max_threads);
+    //Utils::dump_device_buffer<cuComplex>(post_shift_input,nbins*nints*nshifts,"shifted.bin");
+
     device_collapse_subints(post_shift_input,shifted_profiles,nbins,
 			    nints,nbins*nshifts,max_blocks,max_threads);
+    
+    ///Utils::dump_device_buffer<cuComplex>(shifted_profiles,nbins*nshifts,"pretemplate.bin");
+
+    //template normalisation is too steep
+
     device_multiply_by_templates(shifted_profiles, final_array_complex, templates,
 				 nbins, nshifts, nshifts*nbins*ntemplates,
 				 1,max_blocks,max_threads);
+
+    //Utils::dump_device_buffer<cuComplex>(final_array_complex,ntemplates*nbins*nshifts,"posttemplate.bin");
+
     inverse_fft->execute(final_array_complex,final_array_complex,CUFFT_INVERSE);
+
+    //Utils::dump_device_buffer<cuComplex>(final_array_complex,nshifts*nbins*ntemplates,"preabs.bin");
+
     device_get_absolute_value(final_array_complex,final_array_float,
 			      nshifts*nbins*ntemplates,
 			      max_blocks,max_threads);
+    
+    //Utils::dump_device_buffer<float>(final_array_float,nshifts*nbins*ntemplates,"pdmp.bin");
+
     int argmax = device_argmax(final_array_float,nshifts*nbins*ntemplates);
     unsigned int opt_template = argmax/(nbins*nshifts);
     int opt_bin = argmax%nbins-opt_template/2;
     unsigned int opt_shift = argmax/nbins%nbins;
     cufftComplex* prof = shifted_profiles+nbins*opt_shift;
+
+    cufftComplex* subs = post_shift_input+nbins*nints*opt_shift;
+    forward_fft->execute(subs,input_data,CUFFT_INVERSE);
+    Utils::d2hcpy<cufftComplex>(opt_subints_complex,input_data,nbins*nints);
+    for (int ii=0; ii<nbins*nints; ii++)
+      opt_subints[ii] = (float) opt_subints_complex[ii].x;    
+
+    
+    //Utils::dump_device_buffer<cufftComplex>(prof,nbins,"prof.bin");
+
+    //printf("opt_shift: %d   opt_bin: %d   opt_width: %d\n",opt_shift,opt_bin,opt_template);
+
     inverse_fft_profile->execute(prof,prof,CUFFT_INVERSE);
+
+    //Utils::dump_device_buffer<cufftComplex>(prof,nbins,"prof_td.bin");
+    
     Utils::d2hcpy<cufftComplex>(opt_prof_complex,prof,nbins);
     
     for (int ii=0; ii<nbins; ii++)
-      opt_prof[ii] = cuCabsf(opt_prof_complex[ii]);
+      opt_prof[ii] = opt_prof_complex[ii].x;
     
+    //Utils::dump_device_buffer<float>(opt_prof,nbins,"prof_real.bin");
+    
+    //up to here is good for narrow pulse widths 
+
     float sn1 = 0;
     float sn2 = 0;
-    calculate_sn(opt_prof, opt_bin, opt_template+1, nbins, &sn1, &sn2);
+
+    calculate_sn(opt_prof, opt_bin, opt_template, nbins, &sn1, &sn2);
+
     fold.set_opt_sn(std::max(sn1,sn2));
-    float p = fold.get_period();
+    double p = fold.get_period();
     float tobs = fold.get_tobs();
-    
+
     /*
     char buf[80];
+    sprintf(buf,"fold_%.9f_%d.bin\0",p,nbins);
+    Utils::dump_host_buffer<float>(opt_subints,nbins*nints,std::string(buf));
+    //printf("fold_%.9f_%d.bin w:%d   sn1:%f   sn2:%f\n",p,nbins,opt_template+1,sn1,sn2);
+    
     sprintf(buf,"prof_%.9f_%d.bin\0",p,nbins);
     Utils::dump_host_buffer<float>(opt_prof,nbins,std::string(buf));
-    printf("prof_%.9f_%d.bin w:%d   sn1:%f   sn2:%f\n",p,nbins,opt_template+1,sn1,sn2);
+    //printf("prof_%.9f_%d.bin w:%d   sn1:%f   sn2:%f\n",p,nbins,opt_template+1,sn1,sn2);
     */
 
-    fold.set_opt_period(p*(((opt_shift*p)/(nbins*tobs))+1));
+    fold.set_opt_prof(opt_prof,nbins);
+    fold.set_opt_fold(opt_subints,nbins*nints);
+    fold.set_opt_period( p*((((32.0-opt_shift)*p)/(nbins*tobs))+1) );
     fold.set_opt_width(opt_template+1);
     fold.set_opt_bin(opt_bin);
         
@@ -331,8 +393,7 @@ private:
     DevicePowerSpectrum<float> pspec(d_fseries);
     int nbins = 64;
     int nints = 16;
-    float stretch = tsamp/(min_period/64);
-    TimeSeriesFolder folder(nsamps*stretch);
+    TimeSeriesFolder folder(nsamps);
     float period;
     int cand_idx;
     TimeSeries<unsigned char> h_tim;
@@ -366,7 +427,7 @@ private:
 	    folder.fold(d_tim_r,*subints,period);
 	    optimiser->optimise(*subints);
 	    cands[cand_idx].folded_snr = subints->get_opt_sn();
-	    
+	    cands[cand_idx].set_fold(&subints->opt_fold[0],nbins,nints);
 	    cands[cand_idx].opt_period = subints->get_opt_period();
 	  }
       }

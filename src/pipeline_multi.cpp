@@ -18,7 +18,8 @@
 #include <utils/stats.hpp>
 #include <utils/stopwatch.hpp>
 #include <utils/progress_bar.hpp>
-#include <tclap/CmdLine.h>
+#include <utils/cmdline.hpp>
+#include <utils/output_stats.hpp>
 #include <string>
 #include <iostream>
 #include <stdio.h>
@@ -27,33 +28,7 @@
 #include "cufft.h"
 #include "pthread.h"
 #include <cmath>
-
-struct CmdLineOptions {
-  std::string infilename;
-  std::string outfilename;
-  std::string killfilename;
-  std::string zapfilename;
-  int max_num_threads;
-  unsigned int size; 
-  float dm_start; 
-  float dm_end;
-  float dm_tol;
-  float dm_pulse_width;
-  float acc_start;
-  float acc_end;
-  float acc_tol;
-  float acc_pulse_width;
-  float boundary_5_freq;
-  float boundary_25_freq;
-  int nharmonics;
-  float min_snr;
-  float min_freq;
-  float max_freq;
-  int max_harm;
-  float freq_tol;
-  bool verbose;
-  bool progress_bar;
-};
+#include <map>
 
 class DMDispenser {
 private:
@@ -124,8 +99,6 @@ public:
   void start(void)
   {
     cudaSetDevice(device);
-
-
     Stopwatch pass_timer;
     pass_timer.start();
 
@@ -272,134 +245,17 @@ void* launch_worker_thread(void* ptr){
 
 int main(int argc, char **argv)
 {
+  std::map<std::string,Stopwatch> timers;
+  timers["reading"]      = Stopwatch();
+  timers["dedispersion"] = Stopwatch();
+  timers["searching"]    = Stopwatch();
+  timers["folding"]      = Stopwatch();
+  timers["total"]        = Stopwatch();
+  timers["total"].start();
+
   CmdLineOptions args;
-  try
-    {
-      TCLAP::CmdLine cmd("Peasoup - a GPU pulsar search pipeline", ' ', "1.0");
-      
-      TCLAP::ValueArg<std::string> arg_infilename("i", "inputfile",
-						  "File to process (.fil)",
-						  true, "", "string", cmd);
-      
-      TCLAP::ValueArg<std::string> arg_outfilename("o", "outputfile",
-							"The output filename",
-							false, "./candidates.txt", "string",cmd);
-      
-      TCLAP::ValueArg<std::string> arg_killfilename("k", "killfile",
-                                                   "Channel mask file",
-                                                   false, "", "string",cmd);
-      
-      TCLAP::ValueArg<std::string> arg_zapfilename("z", "zapfile",
-						   "Birdie list file",
-						   false, "", "string",cmd);
-
-      TCLAP::ValueArg<int> arg_max_num_threads("t", "num_threads", 
-					       "The number of GPUs to use",
-					       false, 14, "int", cmd);
-      
-      TCLAP::ValueArg<size_t> arg_size("", "fft_size",
-				       "Transform size to use (defaults to lower power of two)",
-				       false, 0, "size_t", cmd);
-      
-      TCLAP::ValueArg<float> arg_dm_start("", "dm_start", 
-					  "First DM to dedisperse to",
-					  false, 0.0, "float", cmd);
-      
-      TCLAP::ValueArg<float> arg_dm_end("", "dm_end",
-					"Last DM to dedisperse to",
-					false, 100.0, "float", cmd);
-      
-      TCLAP::ValueArg<float> arg_dm_tol("", "dm_tol",
-					"DM smearing tolerance (1.11=10%)",
-					false, 1.10, "float",cmd);
-
-      TCLAP::ValueArg<float> arg_dm_pulse_width("", "dm_pulse_width",
-						"Minimum pulse width for which dm_tol is valid",
-						false, 64.0, "float (us)",cmd);
-
-      TCLAP::ValueArg<float> arg_acc_start("", "acc_start",
-                                          "First acceleration to resample to",
-                                          false, 0.0, "float", cmd);
-
-      TCLAP::ValueArg<float> arg_acc_end("", "acc_end",
-                                        "Last acceleration to resample to",
-                                        false, 0.0, "float", cmd);
-
-      TCLAP::ValueArg<float> arg_acc_tol("", "acc_tol",
-                                        "Acceleration smearing tolerance (1.11=10%)",
-                                        false, 1.10, "float",cmd);
-
-      TCLAP::ValueArg<float> arg_acc_pulse_width("", "acc_pulse_width",
-						 "Minimum pulse width for which acc_tol is valid",
-                                                false, 64.0, "float (us)",cmd);
-            
-      TCLAP::ValueArg<float> arg_boundary_5_freq("", "boundary_5_freq",
-						 "Frequency at which to switch from median5 to median25",
-						 false, 0.05, "float", cmd);
-      
-      TCLAP::ValueArg<float> arg_boundary_25_freq("", "boundary_25_freq",
-						 "Frequency at which to switch from median25 to median125",
-                                                 false, 0.5, "float", cmd);
-      
-      TCLAP::ValueArg<int> arg_nharmonics("n", "nharmonics",
-					  "Number of harmonic sums to perform",
-					  false, 4, "int", cmd);
-
-      TCLAP::ValueArg<float> arg_min_snr("m", "min_snr", 
-					 "The minimum S/N for a candidate",
-					 false, 9.0, "float",cmd);
-      
-      TCLAP::ValueArg<float> arg_min_freq("", "min_freq",
-					  "Lowest Fourier freqency to consider",
-					  false, 0.1, "float",cmd);
-      
-      TCLAP::ValueArg<float> arg_max_freq("", "max_freq",
-                                          "Highest Fourier freqency to consider",
-                                          false, 1100.0, "float",cmd);
-
-      TCLAP::ValueArg<int> arg_max_harm("", "max_harm_match",
-					"Maximum harmonic for related candidates",
-					false, 16, "float",cmd);
-      
-      TCLAP::ValueArg<float> arg_freq_tol("", "freq_tol",
-                                          "Tolerance for distilling frequencies (0.0001 = 0.01%)",
-                                          false, 0.0001, "float",cmd);
-      
-      TCLAP::SwitchArg arg_verbose("v", "verbose", "verbose mode", cmd);
-      
-      TCLAP::SwitchArg arg_progress_bar("p", "progress_bar", "Enable progress bar for DM search", cmd);
-
-      cmd.parse(argc, argv);
-      args.infilename        = arg_infilename.getValue();
-      args.outfilename       = arg_outfilename.getValue();
-      args.killfilename      = arg_killfilename.getValue();
-      args.zapfilename       = arg_zapfilename.getValue();
-      args.max_num_threads   = arg_max_num_threads.getValue();
-      args.size              = arg_size.getValue();
-      args.dm_start          = arg_dm_start.getValue();
-      args.dm_end            = arg_dm_end.getValue();
-      args.dm_tol            = arg_dm_tol.getValue();
-      args.dm_pulse_width    = arg_dm_pulse_width.getValue();
-      args.acc_start         = arg_acc_start.getValue();
-      args.acc_end           = arg_acc_end.getValue();
-      args.acc_tol           = arg_acc_tol.getValue();
-      args.acc_pulse_width   = arg_acc_pulse_width.getValue();
-      args.boundary_5_freq   = arg_boundary_5_freq.getValue();   
-      args.boundary_25_freq  = arg_boundary_25_freq.getValue();
-      args.nharmonics        = arg_nharmonics.getValue();
-      args.min_snr           = arg_min_snr.getValue();
-      args.min_freq          = arg_min_freq.getValue();
-      args.max_freq          = arg_max_freq.getValue();
-      args.max_harm          = arg_max_harm.getValue();
-      args.freq_tol          = arg_freq_tol.getValue();
-      args.verbose           = arg_verbose.getValue();
-      args.progress_bar      = arg_progress_bar.getValue();
-      
-    }catch (TCLAP::ArgException &e) {
-    std::cerr << "Error: " << e.error() << " for arg " << e.argId()
-	      << std::endl;
-    return -1;
-  }
+  if (!read_cmdline_options(args,argc,argv))
+    ErrorChecker::throw_error("Failed to parse command line arguments.");
 
   int nthreads = std::min(Utils::gpu_count(),args.max_num_threads);
   nthreads = std::max(1,nthreads);
@@ -408,15 +264,16 @@ int main(int argc, char **argv)
     std::cout << "Using file: " << args.infilename << std::endl;
   std::string filename(args.infilename);
 
-  Stopwatch timer;
-  if (args.progress_bar){
+  //Stopwatch timer;
+  if (args.progress_bar)
     printf("Reading data from %s\n",args.infilename.c_str());
-    timer.start();
-  }
+  
+  timers["reading"].start();
   SigprocFilterbank filobj(filename);
+  timers["reading"].stop();
+    
   if (args.progress_bar){
-    timer.stop();
-    printf("Complete (execution time %.2f s)\n",timer.getTime());
+    printf("Complete (execution time %.2f s)\n",timers["reading"].getTime());
   }
 
   Dedisperser dedisperser(filobj,nthreads);
@@ -429,24 +286,24 @@ int main(int argc, char **argv)
   if (args.verbose)
     std::cout << "Generating DM list" << std::endl;
   dedisperser.generate_dm_list(args.dm_start,args.dm_end,args.dm_pulse_width,args.dm_tol);
+  std::vector<float> dm_list = dedisperser.get_dm_list();
   
   if (args.verbose){
-    std::vector<float> dm_list = dedisperser.get_dm_list();
     std::cout << dm_list.size() << " DM trials" << std::endl;
     for (int ii=0;ii<dm_list.size();ii++)
       std::cout << dm_list[ii] << std::endl;
     std::cout << "Executing dedispersion" << std::endl;
   }
 
-  if (args.progress_bar){
+  if (args.progress_bar)
     printf("Starting dedispersion...\n");
-    timer.start();
-  }
+
+  timers["dedispersion"].start();
   DispersionTrials<unsigned char> trials = dedisperser.dedisperse();
-  if (args.progress_bar){
-    timer.stop();
-    printf("Complete (execution time %.2f s)\n",timer.getTime());
-  }
+  timers["dedispersion"].stop();
+
+  if (args.progress_bar)
+    printf("Complete (execution time %.2f s)\n",timers["dedispersion"].getTime());
 
   unsigned int size;
   if (args.size==0)
@@ -463,7 +320,7 @@ int main(int argc, char **argv)
   
   
   //Multithreading commands
-  
+  timers["searching"].start();
   std::vector<Worker*> workers(nthreads);
   std::vector<pthread_t> threads(nthreads);
   DMDispenser dispenser(trials);
@@ -482,12 +339,11 @@ int main(int argc, char **argv)
     pthread_join(threads[ii],NULL);
     dm_cands.append(workers[ii]->dm_trial_cands.cands);
   }
+  timers["searching"].stop();
   
-  //dm_cands.print();
   if (args.verbose)
     std::cout << "Distilling DMs" << std::endl;
   dm_cands.cands = dm_still.distill(dm_cands.cands);
-  //dm_cands.print();
   dm_cands.cands = harm_still.distill(dm_cands.cands);
   
   CandidateScorer cand_scorer(filobj.get_tsamp(),filobj.get_cfreq(), filobj.get_foff(),
@@ -497,18 +353,53 @@ int main(int argc, char **argv)
   if (args.verbose)
     std::cout << "Setting up time series folder" << std::endl;
   
-    
   MultiFolder folder(dm_cands.cands,trials);
+  timers["folding"].start();
   if (args.progress_bar)
     folder.enable_progress_bar();
 
-  if (args.verbose)
-    std::cout << "Folding top 3000 cands" << std::endl;
-  folder.fold_n(3000);
+  if (args.npdmp > 0){
+    if (args.verbose)
+      std::cout << "Folding top "<< args.npdmp <<" cands" << std::endl;
+    folder.fold_n(args.npdmp);
+  }
+  timers["folding"].stop();
 
   if (args.verbose)
     std::cout << "Writing output files" << std::endl;
-  dm_cands.write_candidate_file(args.outfilename);
+  //dm_cands.write_candidate_file("./old_cands.txt");
+  
+  int new_size = std::min(args.limit,(int) dm_cands.cands.size());
+  dm_cands.cands.resize(new_size);
+
+  CandidateFileWriter cand_files(args.outdir);
+  cand_files.write_binaries(dm_cands.cands);
+  
+  OutputFileWriter stats;
+  stats.add_misc_info();
+  stats.add_header(filename);
+  stats.add_search_parameters(args);
+  stats.add_dm_list(dm_list);
+  
+  std::vector<float> acc_list;
+  acc_plan.generate_accel_list(0.0,acc_list);
+  stats.add_acc_list(acc_list);
+  
+  std::vector<int> device_idxs;
+  for (int device_idx=0;device_idx<nthreads;device_idx++)
+    device_idxs.push_back(device_idx);
+  stats.add_gpu_info(device_idxs);
+  stats.add_candidates(dm_cands.cands,cand_files.filenames);
+  timers["total"].stop();
+  stats.add_timing_info(timers);
+  
+  std::stringstream filepath;
+  filepath << args.outdir << "/" << "overview.xml";
+  stats.to_file(filepath.str());
+  
+
+
+
   
   return 0;
 }

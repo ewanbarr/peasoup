@@ -1,0 +1,284 @@
+<?xml version='1.0' encoding='ISO-8859-1'?>
+<peasoup_search>
+  <misc_info>
+    <username>ebarr</username>
+    <local_datetime>2014-01-17-17:48</local_datetime>
+    <utc_datetime>2014-01-17-06:48</utc_datetime>
+  </misc_info>
+  <header_parameters>
+    <source_name>P: 250.000000000000 ms, DM: 30.000</source_name>
+    <rawdatafile></rawdatafile>
+    <az_start>0</az_start>
+    <za_start>0</za_start>
+    <src_raj>0</src_raj>
+    <src_dej>0</src_dej>
+    <tstart>50000</tstart>
+    <tsamp>0.00032</tsamp>
+    <period>0</period>
+    <fch1>1510</fch1>
+    <foff>-1.09</foff>
+    <nchans>64</nchans>
+    <telescope_id>0</telescope_id>
+    <machine_id>0</machine_id>
+    <data_type>1</data_type>
+    <ibeam>0</ibeam>
+    <nbeams>0</nbeams>
+    <nbits>2</nbits>
+    <barycentric>0</barycentric>
+    <pulsarcentric>0</pulsarcentric>
+    <nbins>0</nbins>
+    <nsamples>187520</nsamples>
+    <nifs>1</nifs>
+    <npuls>0</npuls>
+    <refdm>0</refdm>
+    <signed>232</signed>
+  </header_parameters>
+  <search_parameters>
+    <infilename>example_data/tutorial.fil</infilename>
+    <outfilename>example_output</outfilename>
+    <killfilename></killfilename>
+    <zapfilename></zapfilename>
+    <max_num_threads>14</max_num_threads>
+    <size>0</size>
+    <dm_start>10</dm_start>
+    <dm_end>50</dm_end>
+    <dm_tol>1.00999999046326</dm_tol>
+    <dm_pulse_width>64</dm_pulse_width>
+    <acc_start>0</acc_start>
+    <acc_end>0</acc_end>
+    <acc_tol>1.10000002384186</acc_tol>
+    <acc_pulse_width>64</acc_pulse_width>
+    <boundary_5_freq>0.0500000007450581</boundary_5_freq>
+    <boundary_25_freq>0.5</boundary_25_freq>
+    <nharmonics>4</nharmonics>
+    <npdmp>10</npdmp>
+    <min_snr>9</min_snr>
+    <min_freq>0.100000001490116</min_freq>
+    <max_freq>1100</max_freq>
+    <max_harm>16</max_harm>
+    <freq_tol>9.99999974737875e-05</freq_tol>
+    <verbose>0</verbose>
+    <progress_bar>1</progress_bar>
+  </search_parameters>
+  <dedispersion_trials count='43'>
+    <trial id='0'>10</trial>
+    <trial id='1'>10.9907102584839</trial>
+    <trial id='2'>11.9785079956055</trial>
+    <trial id='3'>12.9634885787964</trial>
+    <trial id='4'>13.9457483291626</trial>
+    <trial id='5'>14.9253797531128</trial>
+    <trial id='6'>15.9024753570557</trial>
+    <trial id='7'>16.8771266937256</trial>
+    <trial id='8'>17.849422454834</trial>
+    <trial id='9'>18.8194522857666</trial>
+    <trial id='10'>19.7873039245605</trial>
+    <trial id='11'>20.7530632019043</trial>
+    <trial id='12'>21.7168159484863</trial>
+    <trial id='13'>22.6786460876465</trial>
+    <trial id='14'>23.6386375427246</trial>
+    <trial id='15'>24.5968704223633</trial>
+    <trial id='16'>25.5534267425537</trial>
+    <trial id='17'>26.5083866119385</trial>
+    <trial id='18'>27.4618301391602</trial>
+    <trial id='19'>28.4138336181641</trial>
+    <trial id='20'>29.3644752502441</trial>
+    <trial id='21'>30.3138313293457</trial>
+    <trial id='22'>31.2619762420654</trial>
+    <trial id='23'>32.208984375</trial>
+    <trial id='24'>33.1549301147461</trial>
+    <trial id='25'>34.0998878479004</trial>
+    <trial id='26'>35.0439262390137</trial>
+    <trial id='27'>35.987117767334</trial>
+    <trial id='28'>36.9295310974121</trial>
+    <trial id='29'>37.8712348937988</trial>
+    <trial id='30'>38.8123016357422</trial>
+    <trial id='31'>39.7527961730957</trial>
+    <trial id='32'>40.6927871704102</trial>
+    <trial id='33'>41.6323394775391</trial>
+    <trial id='34'>42.5715179443359</trial>
+    <trial id='35'>43.5103912353516</trial>
+    <trial id='36'>44.4490203857422</trial>
+    <trial id='37'>45.3874702453613</trial>
+    <trial id='38'>46.3258018493652</trial>
+    <trial id='39'>47.2640800476074</trial>
+    <trial id='40'>48.2023658752441</trial>
+    <trial id='41'>49.1407203674316</trial>
+    <trial id='42'>50.0792045593262</trial>
+  </dedispersion_trials>
+  <acceleration_trials DM='0' count='1'>
+    <trial id='0'>0</trial>
+  </acceleration_trials>
+  <cuda_device_parameters>
+    <runtime>5000</runtime>
+    <driver>5000</driver>
+    <cuda_device id='0'>
+      <name>Tesla C2070</name>
+      <major_cc>2</major_cc>
+      <minor_cc>0</minor_cc>
+    </cuda_device>
+    <cuda_device id='1'>
+      <name>Tesla C2070</name>
+      <major_cc>2</major_cc>
+      <minor_cc>0</minor_cc>
+    </cuda_device>
+  </cuda_device_parameters>
+  <candidates>
+    <candidate id='0'>
+      <period>0.249939903165736</period>
+      <opt_period>0.249986439943314</opt_period>
+      <dm>23.6386375427246</dm>
+      <acc>0</acc>
+      <nh>4</nh>
+      <snr>87.4362030029297</snr>
+      <folded_snr>76.598518371582</folded_snr>
+      <is_adjacent>1</is_adjacent>
+      <is_physical>1</is_physical>
+      <ddm_count_ratio>1</ddm_count_ratio>
+      <ddm_snr_ratio>1</ddm_snr_ratio>
+      <nassoc>42</nassoc>
+      <results_file>cand_0000_0.24994_23.6_0.0.peasoup</results_file>
+    </candidate>
+    <candidate id='1'>
+      <period>0.249660952380952</period>
+      <opt_period>0.249986037611961</opt_period>
+      <dm>46.3258018493652</dm>
+      <acc>0</acc>
+      <nh>1</nh>
+      <snr>37.5219955444336</snr>
+      <folded_snr>80.7676467895508</folded_snr>
+      <is_adjacent>1</is_adjacent>
+      <is_physical>1</is_physical>
+      <ddm_count_ratio>1</ddm_count_ratio>
+      <ddm_snr_ratio>1</ddm_snr_ratio>
+      <nassoc>42</nassoc>
+      <results_file>cand_0001_0.24966_46.3_0.0.peasoup</results_file>
+    </candidate>
+    <candidate id='2'>
+      <period>0.25003302533532</period>
+      <opt_period>0.249986439943314</opt_period>
+      <dm>23.6386375427246</dm>
+      <acc>0</acc>
+      <nh>3</nh>
+      <snr>74.207878112793</snr>
+      <folded_snr>70.9474487304688</folded_snr>
+      <is_adjacent>1</is_adjacent>
+      <is_physical>1</is_physical>
+      <ddm_count_ratio>1</ddm_count_ratio>
+      <ddm_snr_ratio>1</ddm_snr_ratio>
+      <nassoc>42</nassoc>
+      <results_file>cand_0002_0.25003_23.6_0.0.peasoup</results_file>
+    </candidate>
+    <candidate id='3'>
+      <period>0.499693700670141</period>
+      <opt_period>0.500065743923187</opt_period>
+      <dm>12.9634885787964</dm>
+      <acc>0</acc>
+      <nh>4</nh>
+      <snr>52.7380561828613</snr>
+      <folded_snr>10.0223913192749</folded_snr>
+      <is_adjacent>1</is_adjacent>
+      <is_physical>1</is_physical>
+      <ddm_count_ratio>1</ddm_count_ratio>
+      <ddm_snr_ratio>1</ddm_snr_ratio>
+      <nassoc>28</nassoc>
+      <results_file>cand_0003_0.49969_13.0_0.0.peasoup</results_file>
+    </candidate>
+    <candidate id='4'>
+      <period>0.124993235238934</period>
+      <opt_period>0.124999053776264</opt_period>
+      <dm>23.6386375427246</dm>
+      <acc>0</acc>
+      <nh>4</nh>
+      <snr>49.1432800292969</snr>
+      <folded_snr>47.999195098877</folded_snr>
+      <is_adjacent>1</is_adjacent>
+      <is_physical>1</is_physical>
+      <ddm_count_ratio>1</ddm_count_ratio>
+      <ddm_snr_ratio>1</ddm_snr_ratio>
+      <nassoc>42</nassoc>
+      <results_file>cand_0004_0.12499_23.6_0.0.peasoup</results_file>
+    </candidate>
+    <candidate id='5'>
+      <period>0.083302959285005</period>
+      <opt_period>0.0833339840173721</opt_period>
+      <dm>23.6386375427246</dm>
+      <acc>0</acc>
+      <nh>1</nh>
+      <snr>39.1805229187012</snr>
+      <folded_snr>46.8749465942383</folded_snr>
+      <is_adjacent>1</is_adjacent>
+      <is_physical>1</is_physical>
+      <ddm_count_ratio>1</ddm_count_ratio>
+      <ddm_snr_ratio>1</ddm_snr_ratio>
+      <nassoc>42</nassoc>
+      <results_file>cand_0005_0.08330_23.6_0.0.peasoup</results_file>
+    </candidate>
+    <candidate id='6'>
+      <period>0.0277768476821192</period>
+      <opt_period>0.027777710929513</opt_period>
+      <dm>37.8712348937988</dm>
+      <acc>0</acc>
+      <nh>0</nh>
+      <snr>28.9767875671387</snr>
+      <folded_snr>43.346508026123</folded_snr>
+      <is_adjacent>1</is_adjacent>
+      <is_physical>1</is_physical>
+      <ddm_count_ratio>1</ddm_count_ratio>
+      <ddm_snr_ratio>1</ddm_snr_ratio>
+      <nassoc>42</nassoc>
+      <results_file>cand_0006_0.02778_37.9_0.0.peasoup</results_file>
+    </candidate>
+    <candidate id='7'>
+      <period>0.0356962042553191</period>
+      <opt_period>0.0357113964855671</opt_period>
+      <dm>50.0792045593262</dm>
+      <acc>0</acc>
+      <nh>0</nh>
+      <snr>28.007884979248</snr>
+      <folded_snr>41.3292961120605</folded_snr>
+      <is_adjacent>1</is_adjacent>
+      <is_physical>1</is_physical>
+      <ddm_count_ratio>1</ddm_count_ratio>
+      <ddm_snr_ratio>1</ddm_snr_ratio>
+      <nassoc>42</nassoc>
+      <results_file>cand_0007_0.03570_50.1_0.0.peasoup</results_file>
+    </candidate>
+    <candidate id='8'>
+      <period>0.0192311049977075</period>
+      <opt_period>0.019230829551816</opt_period>
+      <dm>27.4618301391602</dm>
+      <acc>0</acc>
+      <nh>0</nh>
+      <snr>19.4930572509766</snr>
+      <folded_snr>-11.0564737319946</folded_snr>
+      <is_adjacent>1</is_adjacent>
+      <is_physical>1</is_physical>
+      <ddm_count_ratio>1</ddm_count_ratio>
+      <ddm_snr_ratio>1</ddm_snr_ratio>
+      <nassoc>42</nassoc>
+      <results_file>cand_0008_0.01923_27.5_0.0.peasoup</results_file>
+    </candidate>
+    <candidate id='9'>
+      <period>1.24737665427509</period>
+      <opt_period>1.24969518184662</opt_period>
+      <dm>11.9785079956055</dm>
+      <acc>0</acc>
+      <nh>4</nh>
+      <snr>19.4846115112305</snr>
+      <folded_snr>-0</folded_snr>
+      <is_adjacent>1</is_adjacent>
+      <is_physical>1</is_physical>
+      <ddm_count_ratio>1</ddm_count_ratio>
+      <ddm_snr_ratio>1</ddm_snr_ratio>
+      <nassoc>42</nassoc>
+      <results_file>cand_0009_1.24738_12.0_0.0.peasoup</results_file>
+    </candidate>
+  </candidates>
+  <execution_times>
+    <dedispersion>0.0275079999119043</dedispersion>
+    <folding>0.102161005139351</folding>
+    <reading>0.0292150005698204</reading>
+    <searching>0.306782990694046</searching>
+    <total>0.942377984523773</total>
+  </execution_times>
+</peasoup_search>

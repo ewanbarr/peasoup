@@ -75,7 +75,7 @@ public:
   }
 
   void score(Candidate& cand){
-    cand.is_pyhsical = has_physical_period(cand);
+    cand.is_physical = has_physical_period(cand);
     cand.is_adjacent = has_adjacency(cand);
     delta_dm_ratio(cand);
   }

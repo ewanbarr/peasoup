@@ -104,8 +104,6 @@ struct DadaHeader {
   }
 };  
 
-  
-
 
 struct SigprocHeader {
   std::string source_name;

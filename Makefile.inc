@@ -5,7 +5,7 @@ CUDA_DIR   = /usr/local/cuda-5.0/
 THRUST_DIR = /usr/local/cuda-5.0/include/
 
 #dedisp setup
-DEDISP_DIR = /lustre/home/ebarr/Soft/dedisp
+DEDISP_DIR = /mnt/home/ebarr/Soft/dedisp
 
 GCC       = gcc
 GXX       = g++

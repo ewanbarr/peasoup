@@ -121,8 +121,10 @@ public:
         gulp_size = size-gulp_counter*max_blocks*max_threads;
         blocks = (gulp_size-1)/max_threads+1;
       }
-      gulp_index = gulp_counter*blocks*max_threads;
+      gulp_index = gulp_counter*max_blocks*max_threads;
       output.push_back(Block(blocks,gulp_index,gulp_size));
+      
+      
     }
   }
 
