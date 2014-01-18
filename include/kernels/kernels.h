@@ -45,37 +45,16 @@ void device_normalise_spectrum(int nsamp,
 
 //------Folding related------//
 
-void device_fold_timeseries(float* tim_buffer, 
-			    float* sorted_tim_buffer,
-                            float* subints_buffer,
-			    int*new_indexes_buffer,
-                            size_t size,
-			    unsigned int nbins, 
-			    unsigned int nints,
-                            double period,
-			    double tsamp, 
-			    unsigned int max_blocks,
-                            unsigned int max_threads);
+void device_fold_timeseries(float* input,
+			    float* output,
+			    size_t nsamps,
+			    size_t nsubints,
+			    double period,
+			    double tsamp,
+			    int nbins,
+			    size_t max_blocks, 
+			    size_t max_threads);
 
-/*
-void device_rebin_time_series(float* input,
-			      float* output,
-                              double period,
-			      double tsamp,
-                              size_t in_size, 
-			      size_t out_size,
-                              unsigned int nbins,
-                              unsigned int max_blocks,
-			      unsigned int max_threads);
-
-void device_create_subints(float* input,
-			   float* output,
-                           unsigned int nbins,
-                           unsigned int output_size,
-                           unsigned int nrots_per_subint,
-                           unsigned int max_blocks,
-                           unsigned int max_threads);
-*/
 //------GPU fold optimisation related-----//
 
 unsigned int device_argmax(float* input, 

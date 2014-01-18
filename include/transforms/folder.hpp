@@ -35,24 +35,15 @@ private:
   unsigned int size;
   unsigned int max_blocks;
   unsigned int max_threads;
-  float* sorted_tim_buffer;
-  int* new_indexes_buffer;
-  int* switch_points;
     
 public:
   TimeSeriesFolder(unsigned int size,
 		   unsigned int max_blocks=MAX_BLOCKS,
 		   unsigned int max_threads=MAX_THREADS)
-    :size(size),max_blocks(max_blocks),max_threads(max_threads)
-  {
-    Utils::device_malloc<float>(&sorted_tim_buffer,size);
-    Utils::device_malloc<int>(&new_indexes_buffer,size);
-  }
+    :size(size),max_blocks(max_blocks),max_threads(max_threads){}
 
-  ~TimeSeriesFolder(){
-    Utils::device_free(sorted_tim_buffer);
-    Utils::device_free(new_indexes_buffer);
-  }
+  ~TimeSeriesFolder(){}
+  
 
   void fold(DeviceTimeSeries<float>& input,FoldedSubints<float>& output, double period)
   {
@@ -61,33 +52,12 @@ public:
     output.set_tobs((float)tobs);
     unsigned int nbins = output.get_nbins();
     unsigned int nints = output.get_nints();
+    
+    device_fold_timeseries(input.get_data(), output.get_data(),
+			   input.get_nsamps(), nints,
+			   period, input.get_tsamp(), nbins,
+			   nints, nbins);
 
-    device_fold_timeseries(input.get_data(), sorted_tim_buffer, output.get_data(),
-			   new_indexes_buffer, input.get_nsamps(), nbins, nints,
-			   period, input.get_tsamp(), max_blocks, max_threads);
-
-    /*
-    char buf[80];
-    sprintf(buf,"/lustre/projects/p002_swin/ebarr/GPUSEEK_TESTS/tim_%.9f_%d.bin\0",period,nbins);
-    Utils::dump_device_buffer<float>(input.get_data(),input.get_nsamps(),std::string(buf));
-    
-    device_rebin_time_series(input.get_data(),rebin_buffer,
-			     period, input.get_tsamp(), 
-			     input.get_nsamps(),rebinned_size,
-			     nbins,max_blocks,max_threads);
-    
-    sprintf(buf,"/lustre/projects/p002_swin/ebarr/GPUSEEK_TESTS/tim_%.9f_%d_r.bin\0",period,nbins);
-    Utils::dump_device_buffer<float>(rebin_buffer,rebinned_size,std::string(buf));
-    
-    
-    device_create_subints(rebin_buffer, output.get_data(), nbins,
-			  nbins*nints, nrots_per_subint, 
-			  max_blocks,max_threads);
-    */
-    /*
-    sprintf(buf,"/lustre/projects/p002_swin/ebarr/GPUSEEK_TESTS/ints_%.9f_%d.bin\0",period,nbins);
-    Utils::dump_device_buffer<float>(output.get_data(),nbins*nints,std::string(buf));
-    */
   }
 };
 

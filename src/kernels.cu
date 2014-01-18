@@ -367,303 +367,59 @@ void device_normalise_spectrum(int nsamp,
 
 //--------------Time series folder----------------//
 
-/*
-__global__ void reindexing_kernel(float* i_data, float* o_data, size_t size, 
-				  size_t gulp_idx, double tsamp_by_period, 
-				  float nrots_per_subint)
+__global__ void fold_time_series_kernel(float* input, float* output, 
+					size_t nsubints,
+					size_t nbins, size_t nsamps_per_subint,
+					double tsamp_by_period)
 {
-  int nbins = 64;
-  __shared__ int idx_buffer_s[MAX_THREADS];
-  __shared__ float i_data_s[MAX_THREADS];
-  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;  
-  if (idx>=size)
+  extern __shared__ float block [];
+  float* soutput = (float*) &block[0];
+  int* count = (int*) &block[nbins];
+
+  //one block per subint
+  size_t data_idx = nsamps_per_subint*blockIdx.x + threadIdx.x;
+  size_t ii,jj;
+  int idx;
+  
+  if (threadIdx.x>nbins)
     return;
-  int bin = __float2int_rd(idx*nbins*tsamp_by_period)%nbins;
-  int subint = __float2int_rd((tsamp_by_period*idx)/nrots_per_subint);
-  int oidx = subint*nbins+bin;
-  idx_buffer_s[threadIdx.x] = oidx;
-  i_data_s[threadIdx.x] = i_data[idx];
-  __syncthreads();
-  float val = 0.0;
-  int count = 0;
-  for (int ii=0;ii<MAX_THREADS;ii++){
-    if (threadIdx.x==idx_buffer_s[ii]){
-      val += i_data_s[ii];
-      count++;
-    }
+
+  //zero output shared memory
+  for (ii=threadIdx.x; ii<nbins; ii+=blockDim.x){
+    soutput[ii] = 0;
+    count[ii] = 1;
   }
-  if (count!=0)
-    o_data[threadIdx.x] += val/count;
-}
-*/
-
-__global__ void reindexing_kernel(size_t size, int* new_indexes, int nbins,
-				   size_t gulp_idx, double tsamp_by_period,
-				   double nrots_per_subint)
-{
-  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
-  if (idx>=size)
-    return;
-
-  int subint = __double2int_rd((tsamp_by_period*idx)/nrots_per_subint);
-  int bin = __double2int_rd(idx*nbins*tsamp_by_period)%nbins;
-  //int bin = __float2int_rd(idx*nbins*tsamp_by_period)%nbins;
-  //int subint = __float2int_rd((tsamp_by_period*idx)/nrots_per_subint);
-  int oidx = subint*nbins+bin;
-  new_indexes[idx] = oidx;
-}
-
-__global__ void find_switch_points_kernel(int* indexes, size_t size, int* switch_ar, size_t gulp_idx)
-{
-  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
+  //read all data for a subint
+  double int_part,float_part;
   
-  if (idx>=size-2)
-    return;
-  
-  if (idx == 0){
-    switch_ar[0] = 0;
-    return;
-  }
-  
-  if (indexes[idx] != indexes[idx+1]){
-    switch_ar[indexes[idx+1]] = idx+1;
-  } 
-  
-}
-
-__global__ void bin_timeseries_kernel(float* tim, float* output, int* switch_points, unsigned int size)
-{
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx>=size)
-    return;
-  int end;
-  int start = switch_points[idx];
-  
-  if (idx==size-1)
-    end = size;
-  else
-    end = switch_points[idx+1];
-  
-  int count = end-start;
-  float val = 0.0;
-  for (int ii=start;ii<end;ii++)
-    val += tim[ii];
-  if (count!=0)
-    output[idx] = val/count;
-  else
-    output[idx] = 0;
-}
-
-void device_fold_timeseries(float* tim_buffer, float* sorted_tim_buffer,
-			    float* subints_buffer, int* new_indexes_buffer,
-			    size_t size, unsigned int nbins, unsigned int nints,
-			    double period, double tsamp, unsigned int max_blocks,
-			    unsigned int max_threads)
-{
-  int ii;
-  int* switch_points;
-  Utils::device_malloc<int>(&switch_points,nbins*nints);
-  Utils::d2dcpy(sorted_tim_buffer,tim_buffer,size);
-  double tsamp_by_period = tsamp/period;
-  double nrots_per_subint = (size*tsamp)/period/nints;
-  
-  BlockCalculator calc(size, max_blocks, max_threads);
-  
-  for (ii=0;ii<calc.size();ii++){
-    reindexing_kernel<<<calc[ii].blocks,max_threads>>>(size,new_indexes_buffer,nbins,calc[ii].data_idx,
-						       tsamp_by_period, nrots_per_subint);
-  }
-  ErrorChecker::check_cuda_error("Error from reindexing_kernel.");
-  
-  thrust::device_ptr<int>   th_new_idx_ptr(new_indexes_buffer);
-  thrust::device_ptr<float> th_sorted_tim_ptr(sorted_tim_buffer);
-
-  thrust::sort_by_key(th_new_idx_ptr,th_new_idx_ptr+size,th_sorted_tim_ptr);
-  
-  for (ii=0;ii<calc.size();ii++){
-    find_switch_points_kernel<<<calc[ii].blocks,max_threads>>>(new_indexes_buffer, size,
-							       switch_points, calc[ii].data_idx);
-  }
-  ErrorChecker::check_cuda_error("Error from find_switch_points_kernel.");
-  
-  
-  BlockCalculator calc2(nbins*nints, max_blocks, max_threads);
-  for (ii=0;ii<calc2.size();ii++)
-    bin_timeseries_kernel<<<calc2[ii].blocks,max_threads>>>(sorted_tim_buffer, subints_buffer,
-							    switch_points, nbins*nints);
-  ErrorChecker::check_cuda_error("Error from bin_time_series_kernel.");
-  Utils::device_free(switch_points);
-}
-
-
-/*
-void device_fold_timeseries(float* i_data, float* o_data, 
-			    size_t size, unsigned int nbins, unsigned int nints,
-			    double period, double tsamp, unsigned int max_blocks,
-			    unsigned int max_threads)
-{
-  thrust::device_ptr<float> ptr(o_data);
-  thrust::fill(ptr,ptr+nbins*nints,0.0);
-  double tsamp_by_period = tsamp/period;
-  double nrots_per_subint = (size*tsamp)/period/nints;
-  BlockCalculator calc(size, max_blocks, max_threads);
-  for (int ii=0;ii<calc.size();ii++){
-    reindexing_kernel<<<calc[ii].blocks,max_threads>>>(i_data, o_data, size, calc[ii].data_idx, 
-						       tsamp_by_period, nrots_per_subint); 
-  }
-}
-*/
-
-/*
-__global__ 
-void interpolated_rebin_time_series_kernel(float* i_data, float* o_data,
-					   unsigned int size, float tsamp,
-					   float period, unsigned int nbins,
-					   unsigned int gulp_idx, 
-					   unsigned int in_size, float frac)
-{
-  int oidx = blockIdx.x * blockDim.x;
-  int iidx = __float2int_rd(oidx*frac);
-  
-  extern __shared__ float i_data_s[];
-
-  if (threadIdx.x < blockDim.x*frac+1){
-    if (iidx+threadIdx.x < in_size)
-      i_data_s[threadIdx.x] = i_data[iidx+threadIdx.x];
-  }
-  __syncthreads();
-  if (oidx+threadIdx.x < size){ 
-    float ipart;
-    float x = threadIdx.x*frac + modff(oidx*frac,&ipart);
-    int x0 = __float2int_rd(x);
-    int x1 = x0+1;
-    float y0 = i_data_s[x0];
-    float y1 = i_data_s[x1];
-    o_data[oidx+threadIdx.x] = y0 + (y1-y0)*((x-x0)/(x1-x0));
-  }
-}
-*/
-__global__
-void interpolated_rebin_time_series_kernel(float* i_data, float* o_data,
-                                           unsigned int size, float tsamp,
-                                           float period, unsigned int nbins,
-                                           unsigned int gulp_idx,
-                                           unsigned int in_size, float frac)
-{
-  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
-    
-  if (idx==0){
-    o_data[idx]=i_data[idx];
-    return;
-  }
-  else if (idx>=size)
-    return;
-  
-  float x = idx*frac;
-  int x0 = __float2int_rd(x);
-  int x1 = x0+1;
-  
-  if (x1 >= in_size || x0 >= in_size)
-    return;
-  
-  float y0 = i_data[x0];
-  float y1 = i_data[x1];
-
-  o_data[idx] = y0 + (y1-y0)*((x-x0)/(x1-x0));
-  
-}
-
-
-__global__ 
-void rebin_time_series_kernel(float* i_data, float* o_data,
-			      unsigned int size, float tsamp,
-			      float period, unsigned int nbins,
-			      unsigned int gulp_idx, unsigned int in_size) 
-{ 
-  int ii;
-  float val=0;
-  int count=0;
-  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
-  if (idx>=size)
-    return;
-
-  int start_idx = __float2int_rn(idx*period/(tsamp*nbins));
-  int end_idx = __float2int_rn((idx+1)*period/(tsamp*nbins));
-
-  if (end_idx>=in_size)
-    end_idx=in_size-1;
-  if (start_idx==end_idx){
-    o_data[idx] = i_data[start_idx];
-  } else {
-    for (ii=start_idx;ii<=end_idx;ii++)
-      {
-        val+=i_data[ii];
-        count++;
-      }
-    o_data[idx] = val/count;
-  }
-}
-
-
-__global__ 
-void create_subints_kernel(float* input, float* output,
-			   unsigned int nbins,
-			   unsigned int output_size,
-			   unsigned int nrots_per_subint)
-{
-  int ii;
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx>=output_size)
-    return;
-  unsigned int bin = idx%nbins;
-  unsigned int subint = idx/nbins;
-  unsigned int offset = subint*nrots_per_subint*nbins;
-  float val = 0;
-  for (ii=0;ii<nrots_per_subint;ii++)
+  for (jj = data_idx; jj < (data_idx + nsamps_per_subint); jj += blockDim.x)
     {
-      val+=input[(ii*nbins)+bin+offset];
+      float_part = modf(jj*tsamp_by_period,&int_part);
+      idx = __double2int_rd(float_part * nbins);
+      atomicAdd(&soutput[idx], input[jj]); 
+      atomicAdd(&count[idx], 1);
     }
-  output[idx] = val/nrots_per_subint;
+  
+  for (ii=threadIdx.x; ii<nbins; ii+=blockDim.x)
+    output[blockIdx.x * nbins + ii] = soutput[ii]/count[ii];
 }
 
-void device_create_subints(float* input, float* output,
-			   unsigned int nbins,
-                           unsigned int output_size,
-                           unsigned int nrots_per_subint,
-			   unsigned int max_blocks,
-			   unsigned int max_threads)
+void device_fold_timeseries(float* input, float* output,
+			    size_t nsamps, size_t nsubints,
+			    double period, double tsamp, int nbins,
+			    size_t max_blocks, size_t max_threads)
 {
-  unsigned int nblocks = output_size/max_threads + 1;
-  create_subints_kernel<<<nblocks,max_threads>>>(input,output,nbins,
-						 output_size,
-						 nrots_per_subint);
-  ErrorChecker::check_cuda_error("Error from device_create_subints");
-}
+  size_t nsamps_per_subint = nsamps/nsubints;
+  double tsamp_by_period = tsamp/period;
 
-void device_rebin_time_series(float* input, float* output,
-                              double period, double tsamp,
-                              size_t in_size, size_t out_size,
-                              unsigned int nbins,
-                              unsigned int max_blocks, unsigned int max_threads)
-{
-  double frac = period/tsamp/nbins;
-  //the +4 below is a accounts for a potential rounding error in the
-  //rebinning kernel and should be left as is. Saftey first.
-  //int shared_mem_size = (int)(max_threads*frac+4)*sizeof(float);
-  BlockCalculator calc(out_size, max_blocks, max_threads);
-  for (int ii=0;ii<calc.size();ii++){
-    if (frac < 1.0)
-      interpolated_rebin_time_series_kernel
-	<<<calc[ii].blocks,max_threads>>>(input,output,out_size,
-					  (float)tsamp,(float)period,nbins,
-					  calc[ii].data_idx,in_size,frac);
-    else 
-      rebin_time_series_kernel
-	<<<calc[ii].blocks,max_threads>>>(input,output,out_size,
-					  (float)tsamp,(float)period,nbins,
-					  calc[ii].data_idx,in_size);
+  if (nbins*sizeof(float)*2>16384){
+    ErrorChecker::throw_error("device_fold_timeseries: nbins must be less than 2048");
+    return;
   }
-  ErrorChecker::check_cuda_error("Error from device_rebin_time_series");
+
+  fold_time_series_kernel<<<nsubints,nbins,2*nbins*nsubints*sizeof(float)>>>
+    (input,output,nsubints,nbins,nsamps_per_subint,tsamp_by_period);
+  ErrorChecker::check_cuda_error("Error from device_fold_timeseries.");
 }
 
 //--------------FoldOptimiser------------//
@@ -1185,61 +941,4 @@ void device_conversion(X* x, Y* y, unsigned int size,
 template void device_conversion<char,float>(char*, float*, unsigned int, unsigned int, unsigned int);
 template void device_conversion<unsigned char,float>(unsigned char*, float*, unsigned int, unsigned int, unsigned int);
 
-//--------FIR delays--------//
-/*
-__global__
-void fir_kernel(char* input, char* output, 
-		size_t input_size, cuComplex* fir,
-		unsigned int fir_size)
-{
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int data_idx = 2*(idx - (blockIdx.x * fir_size));
-  unsigned int fsize_by_2 = fir_size/2;
-    
-  __shared__ cuComplex* cdata[MAX_THREADS];
-  
-  char real = input[data_idx];
-  char imag = input[data_idx+1];
-  cdata[threadIdx.x] = make_cuComplex((float) real+0.5, (float) imag+0.5);
-  __syncthreads();
-  
-  if (data_idx >= input_size)
-    return;
-  
-  int start,end;
-  
-  if (data_idx < fir_size){
-    start = fir_size-data_idx;
-    end = fir_size;
-    
 
-  }
-
-  else if (threadIdx.x<fsize_by_2)
-    return;
-  
-  else if (data_idx+fir_size >= input_size){
-    start = 0;
-    end = input_size-data_idx;
-  }
-  else if (threadIdx.x > MAX_THREADS-fsize_by_2)
-    return;
-
-  else {						
-    start = 0;
-    end = fir_size;
-  }
-  cuComplex val = make_cuComplex(0.0,0.0);
-  
-  for (int ii=start; ii<end; ii++)
-    val += cuCmulf(fdata[threadIdx.x+ii],fir[ii]);
-  
-  //convert back to char*
-  
-  output[data_idx] = real_char;
-  output[data_idx+1] = imag_char;
-  
-
-}
-
-*/
