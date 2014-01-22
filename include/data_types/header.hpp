@@ -171,33 +171,33 @@ public:
 class SigprocHeader {
 public:
   // Naming convention from sigproc header keys
-  std::string source_name;
-  std::string rawdatafile;
-  double az_start;
-  double za_start;
-  double src_raj;
-  double src_dej;
-  double tstart;
-  double tsamp;
-  double period;
-  double fch1;
-  double foff;
-  int    nchans;
-  int    telescope_id;
-  int    machine_id;
-  int    data_type;
-  int    ibeam;
-  int    nbeams;
-  int    nbits;
-  int    barycentric;
+  std::string source_name; /*!< Source name.*/
+  std::string rawdatafile; /*!< Name of original data file.*/
+  double az_start; /*!< Azimuth angle (deg).*/
+  double za_start; /*!< Zenith angle (deg).*/
+  double src_raj; /*!< Right ascension (hhmmss.ss format).*/
+  double src_dej; /*!< Declination (ddmmss.ss format).*/
+  double tstart; /*!< Modified Julian date of first sample.*/
+  double tsamp; /*!< Sampling time (seconds).*/
+  double period; 
+  double fch1; /*!< Frequency of top channel (MHz).*/
+  double foff; /*!< Channel bandwith (MHz).*/
+  int    nchans; /*!< Number of frequency channels.*/
+  int    telescope_id; /*!< Sigproc telescope ID.*/
+  int    machine_id; /*!< Sigproc backend ID.*/
+  int    data_type; /*!< Sigproc data type ID.*/ 
+  int    ibeam; /*!< Beam number.*/
+  int    nbeams; /*!< Number of beams.*/
+  int    nbits; /*!< Number of bits per sample.*/
+  int    barycentric; 
   int    pulsarcentric;
-  int    nbins;
-  int    nsamples;
-  int    nifs;
+  int    nbins;  
+  int    nsamples; /*!< Number of time samples.*/
+  int    nifs; 
   int    npuls;
-  double refdm;
-  unsigned char signed_data;
-  unsigned int size; // Header size in bytes
+  double refdm; /*!< Reference DM of data.*/
+  unsigned char signed_data; /*!< char or unsigned char.*/
+  unsigned int size; /*!< Header size in bytes.*/
   
   /*!
     \brief Default constructor, initializes all values to zero.
@@ -207,7 +207,7 @@ public:
     tstart(0.0), tsamp(0.0), period(0.0), fch1(0.0), foff(0.0),
     nchans(0), telescope_id(0), machine_id(0), data_type(0),
     ibeam(0), nbeams(0), nbits(0), barycentric(0),
-    pulsarcentric(0), nbins(0), nsamples(0), nifs(0), npuls(0),
+    pulsarcentric(0),  nsamples(0), nifs(0), npuls(0),
     refdm(0.0) {}
 };
 
