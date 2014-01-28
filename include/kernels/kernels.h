@@ -1,5 +1,11 @@
 #pragma once
 
+void device_harmonic_sum_II(float* d_input_array, 
+			    float** d_output_array,
+                            size_t size, 
+			    unsigned nharms,
+			    unsigned int max_blocks,
+			    unsigned int max_threads);
 
 void device_harmonic_sum(float* d_input_array,
 			 float* d_output_array,

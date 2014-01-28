@@ -60,21 +60,78 @@ void harmonic_sum_kernel(float *d_idata, float *d_odata,
   return;
 }
 
-/* Old routine
-void device_harmonic_sum(float* d_input_array, float* d_output_array,
-                         size_t size, int harmonic,
-                         unsigned int max_blocks, unsigned int max_threads)
-{
-  float one_over_sqrt_harm = 1.0f/sqrt((float)harmonic);
-  BlockCalculator calc(size, max_blocks, max_threads);
-  for (int ii=0;ii<calc.size();ii++){
-    harmonic_sum_kernel_generic<<<calc[ii].blocks,max_threads>>>
-      (d_input_array,d_output_array,calc[ii].data_idx,
-       size,harmonic,one_over_sqrt_harm);
-  }
-  ErrorChecker::check_cuda_error("Error from device_harmonic_sum");
-}
+/*
+  Unwrapped kernel to perform harmonic summing up to 16th harmonic.
+
+  TODO: test speed.
 */
+
+__global__
+void harmonic_sum_kernel_4(float *d_idata, float **d_odata,
+			   size_t size, unsigned nharms)
+  
+{
+  for( int idx = blockIdx.x*blockDim.x + threadIdx.x ; idx < size ; idx += blockDim.x*gridDim.x )
+    {
+      float val = d_idata[idx];
+      
+      if (nharms>0)
+	{
+      	  val += d_idata[(int) (idx/2.0 + 0.5)];
+	  d_odata[0][idx] = val*rsqrt(2.0);
+	}
+      
+      if (nharms>1)
+	{
+	  val += d_idata[(int) (idx * 0.75 + 0.5)];
+	  val += d_idata[(int) (idx * 0.25 + 0.5)];
+	  d_odata[1][idx] = val*0.5;
+	}
+
+      if (nharms>2)
+	{
+	  val += d_idata[(int) (idx * 0.125 + 0.5)];
+	  val += d_idata[(int) (idx * 0.375 + 0.5)];
+	  val += d_idata[(int) (idx * 0.625 + 0.5)];
+	  val += d_idata[(int) (idx * 0.875 + 0.5)];
+	  d_odata[2][idx] = val*rsqrt(8.0);
+	}
+
+      if (nharms>3)
+	{
+	  val += d_idata[(int) (idx * 0.0625 + 0.5)];
+	  val += d_idata[(int) (idx * 0.1875 + 0.5)];
+	  val += d_idata[(int) (idx * 0.3125 + 0.5)];
+	  val += d_idata[(int) (idx * 0.4375 + 0.5)];
+	  val += d_idata[(int) (idx * 0.5625 + 0.5)];
+	  val += d_idata[(int) (idx * 0.6875 + 0.5)];
+	  val += d_idata[(int) (idx * 0.8125 + 0.5)];
+	  val += d_idata[(int) (idx * 0.9375 + 0.5)];
+	  d_odata[3][idx] = val*0.25;
+	}
+      
+      if (nharms>4)
+	{
+	  val += d_idata[(int) (idx * 0.03125 + 0.5)];
+	  val += d_idata[(int) (idx * 0.09375 + 0.5)];
+	  val += d_idata[(int) (idx * 0.15625 + 0.5)];
+	  val += d_idata[(int) (idx * 0.21875 + 0.5)];
+	  val += d_idata[(int) (idx * 0.28125 + 0.5)];
+	  val += d_idata[(int) (idx * 0.34375 + 0.5)];
+	  val += d_idata[(int) (idx * 0.40625 + 0.5)];
+	  val += d_idata[(int) (idx * 0.46875 + 0.5)];
+	  val += d_idata[(int) (idx * 0.53125 + 0.5)];
+	  val += d_idata[(int) (idx * 0.59375 + 0.5)];
+	  val += d_idata[(int) (idx * 0.65625 + 0.5)];
+	  val += d_idata[(int) (idx * 0.71875 + 0.5)];
+	  val += d_idata[(int) (idx * 0.78125 + 0.5)];
+	  val += d_idata[(int) (idx * 0.84375 + 0.5)];
+	  val += d_idata[(int) (idx * 0.90625 + 0.5)];
+	  val += d_idata[(int) (idx * 0.96875 + 0.5)];
+	}
+    }
+  return;
+}
 
 void device_harmonic_sum(float* d_input_array, float* d_output_array,
 			   size_t size, int harmonic,
@@ -85,6 +142,17 @@ void device_harmonic_sum(float* d_input_array, float* d_output_array,
   harmonic_sum_kernel<<<calc[0].blocks,max_threads>>>
     (d_input_array,d_output_array,0,
      size,harmonic,one_over_sqrt_harm);
+  ErrorChecker::check_cuda_error("Error from device_harmonic_sum");
+}
+
+void device_harmonic_sum_II(float* d_input_array, float** d_output_array,
+			    size_t size, unsigned nharms, 
+			    unsigned int max_blocks, unsigned int max_threads)
+{
+  unsigned blocks = size/max_blocks + 1;
+  if (blocks > max_blocks)
+    blocks = max_blocks;
+  harmonic_sum_kernel_4<<<blocks,max_threads>>>(d_input_array,d_output_array,size,nharms);
   ErrorChecker::check_cuda_error("Error from device_harmonic_sum");
 }
 
