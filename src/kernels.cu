@@ -21,54 +21,15 @@
 #include <utils/utils.hpp>
 #include <thrust/adjacent_difference.h>
 
+
+
+
 //--------------Harmonic summing----------------//
 
-//Could be optimised with registers
-/*
-__global__ 
-void harmonic_sum_kernel_generic(float *d_idata, float *d_odata,
-				 int gulp_index, size_t size, int harmonic, 
-				 float one_over_sqrt_harm)
-{
-  float val;
-  int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_index;
-  if(idx<size) 
-    {
-      val = d_idata[idx];
-      for(int i = 1; i < harmonic; i++)
-	val += d_idata[int((i*idx)/harmonic+0.5)];
-      d_odata[idx] = val * one_over_sqrt_harm;
-    }
-  return;
-}
-*/
-
+/* Unwrapped for 3x speed increase */
 __global__
-void harmonic_sum_kernel(float *d_idata, float *d_odata,
-			 int gulp_index, size_t size, int harmonic,
-			 float one_over_sqrt_harm)
-{
-  for( int idx = blockIdx.x*blockDim.x + threadIdx.x ; idx < size ; idx += blockDim.x*gridDim.x )
-    {
-      double idx_div_harmonic = (double) idx / harmonic, i_as_dbl = 1.0;
-      
-      float val = d_idata[idx];
-      for( int i = 1 ; i < harmonic ; ++i, i_as_dbl += 1.0 )
-	val += d_idata[(int) (i_as_dbl*idx_div_harmonic + 0.5)];
-      d_odata[idx] = val*one_over_sqrt_harm;
-  }
-  return;
-}
-
-/*
-  Unwrapped kernel to perform harmonic summing up to 16th harmonic.
-
-  TODO: test speed.
-*/
-
-__global__
-void harmonic_sum_kernel_4(float *d_idata, float **d_odata,
-			   size_t size, unsigned nharms)
+void harmonic_sum_kernel(float *d_idata, float **d_odata,
+			 size_t size, unsigned nharms)
   
 {
   for( int idx = blockIdx.x*blockDim.x + threadIdx.x ; idx < size ; idx += blockDim.x*gridDim.x )
@@ -133,26 +94,14 @@ void harmonic_sum_kernel_4(float *d_idata, float **d_odata,
   return;
 }
 
-void device_harmonic_sum(float* d_input_array, float* d_output_array,
-			   size_t size, int harmonic,
-			   unsigned int max_blocks, unsigned int max_threads)
+void device_harmonic_sum(float* d_input_array, float** d_output_array,
+			 size_t size, unsigned nharms, 
+			 unsigned int max_blocks, unsigned int max_threads)
 {
-  float one_over_sqrt_harm = 1.0f/sqrt((float)harmonic);
-  BlockCalculator calc(size, max_blocks, max_threads);
-  harmonic_sum_kernel<<<calc[0].blocks,max_threads>>>
-    (d_input_array,d_output_array,0,
-     size,harmonic,one_over_sqrt_harm);
-  ErrorChecker::check_cuda_error("Error from device_harmonic_sum");
-}
-
-void device_harmonic_sum_II(float* d_input_array, float** d_output_array,
-			    size_t size, unsigned nharms, 
-			    unsigned int max_blocks, unsigned int max_threads)
-{
-  unsigned blocks = size/max_blocks + 1;
+  unsigned blocks = size/max_threads + 1;
   if (blocks > max_blocks)
     blocks = max_blocks;
-  harmonic_sum_kernel_4<<<blocks,max_threads>>>(d_input_array,d_output_array,size,nharms);
+  harmonic_sum_kernel<<<blocks,max_threads>>>(d_input_array,d_output_array,size,nharms);
   ErrorChecker::check_cuda_error("Error from device_harmonic_sum");
 }
 
@@ -259,6 +208,13 @@ inline __device__ unsigned long getAcceleratedIndex(double accel_fact, double si
   return __double2ull_rn(id + accel_fact*( ((id-size_by_2)*(id-size_by_2)) - (size_by_2*size_by_2)));
 }
 
+
+inline __device__ unsigned long getAcceleratedIndexII(double accel_fact, double size,
+						      unsigned long id){
+  return __double2ull_rn(id + id*accel_fact*(id-size));
+}
+
+
 __global__ void resample_kernel(float* input_d,
 				float* output_d,
 				double accel_fact,
@@ -271,6 +227,36 @@ __global__ void resample_kernel(float* input_d,
     return;
   unsigned long idx_read = getAcceleratedIndex(accel_fact,size_by_2,idx);
   output_d[idx] = input_d[idx_read];
+}
+
+
+__global__ void resample_kernelII(float* input_d,
+				  float* output_d,
+				  double accel_fact,
+				  double size)
+				  
+{
+  for( unsigned long idx = blockIdx.x*blockDim.x + threadIdx.x ; idx < size ; idx += blockDim.x*gridDim.x )
+  {
+    unsigned long out_idx = getAcceleratedIndexII(accel_fact,size,idx);
+    output_d[idx] = input_d[out_idx];
+  }
+}
+
+void device_resampleII(float * d_idata, float * d_odata,
+                     size_t size, float a,
+                     float tsamp, unsigned int max_threads,
+                     unsigned int max_blocks)
+{
+  
+  double accel_fact = ((a*tsamp) / (2 * 299792458.0));
+  unsigned blocks = size/max_threads + 1;
+  if (blocks > max_blocks)
+    blocks = max_blocks;
+  resample_kernelII<<< blocks,max_threads >>>(d_idata, d_odata,
+					      accel_fact,
+					      (double) size);
+  ErrorChecker::check_cuda_error("Error from device_resampleII");
 }
 
 void device_resample(float * d_idata, float * d_odata,
@@ -434,11 +420,88 @@ void device_normalise_spectrum(int nsamp,
 
 
 //--------------Time series folder----------------//
+/*
+__global__
+void fold_filterbank_kernel(float* input, float* output, unsigned* count,
+			    unsigned nchans, float tsamp_by_period,
+			    double accel_fact, unsigned nbins, 
+			    float nrots_per_subint, unsigned nsamps,
+			    unsigned offset)
+{
+  extern __shared__ peasoup_fold_plan plan [];
+  
+  unsigned first_samp;
+  unsigned samp;
+  float rotation;
+  float int_part;
+  float frac_part;
+  unsigned in_idx_partial,in_idx;
+  unsigned out_idx_partial,out_idx;
+  
+  //Start in time domain and calculate output 
+  //phasebin an subint for each sample in the block
 
-__global__ void fold_time_series_kernel(float* input, float* output, 
-					size_t nsubints,
-					size_t nbins, size_t nsamps_per_subint,
-					double tsamp_by_period)
+  first_samp = blockIdx.x*blockDim.x + offset;
+  samp = first_samp + threadIdx.x;
+  rotation = (samp + samp*accel_fact*(samp-nsamps))*tsamp_by_period;
+  frac_part = modf(rotation,&int_part);
+  plan[threadIdx.x].subint = __float2uint_rd(rotation/nrots_per_subint);
+  plan[threadIdx.x].phasebin = __float2uint_rd(frac_part*nbins);
+  
+  //Sync and move to channel domain to preserve
+  //memory bandwidth
+  
+  __sync_threads();
+  
+  for (jj=0; jj<blockDim.x; jj++)
+    {
+      in_idx_partial = (jj+first_samp)*nchans;
+ 
+      //These are shared memory broadcasts
+      out_idx_partial = nbins*nchans*plan[jj].subint + nchan*plan[jj].bin;
+
+      for (ii=threadIdx.x; ii<nchans; ii+=blockDim.x)
+	{
+	  in_idx = in_idx_partial+ii;
+	  out_idx = out_idx_partial+ii;
+	  output[out_idx] += input[in_idx];
+	  count[out_idx]++;
+	}
+    }
+}
+*/
+ /*
+int device_fold_filterbank(float* input, float* output, unsigned* count, 
+			   float tsamp, float period, float acceleration,
+			   unsigned nsubints, unsigned nbins, unsigned nchans,
+			   unsigned total_nsamps, unsigned nsamps, unsigned offset,
+			   unsigned max_blocks, unsigned max_threads)
+{
+  
+    Convert from nbit to float
+    fold
+    transpose folds
+    gpu pdmp
+  
+  
+  float tobs = total_nsamps*tsamp;
+  float nrots = tobs/period;
+  float nrots_per_subint = nrots/nsubints;
+  float tsamp_by_period = tsamp_by_period;
+  double accel_fact = ((acceleration * tsamp) / (2 * 299792458.0));
+  unsigned mem_size_bytes = nsamps*sizeof(peasoup_fold_plan);
+  fold_filterbank_kernel<<<max_blocks,max_threads,mem_size_bytes>>>
+    (input, output, count, nchans, tsamp_by_period, accel_fact, nbins,
+     nrots_per_subint, nsamps, offset);
+    
+}
+*/
+
+__global__ 
+void fold_time_series_kernel(float* input, float* output, 
+			     size_t nsubints,
+			     size_t nbins, size_t nsamps_per_subint,
+			     double tsamp_by_period)
 {
   extern __shared__ float block [];
   float* soutput = (float*) &block[0];

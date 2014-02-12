@@ -23,6 +23,14 @@ public:
 		    acc, input.get_tsamp(),max_threads,  max_blocks);
   }
 
+  void resampleII(DeviceTimeSeries<float>& input, DeviceTimeSeries<float>& output,
+                unsigned int size, float acc)
+  {
+    device_resampleII(input.get_data(), output.get_data(), size,
+                    acc, input.get_tsamp(),max_threads,  max_blocks);
+  }
+
+
 };
 
 

@@ -32,6 +32,14 @@ struct CmdLineOptions {
   bool progress_bar;
 };
 
+std::string get_utc_str()
+{
+  char buf[128];
+  std::time_t t = std::time(NULL);
+  std::strftime(buf, 128, "./%Y-%m-%d-%H:%M_peasoup/", std::gmtime(&t));
+  return std::string(buf);
+}
+
 bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
 {
   try
@@ -43,9 +51,9 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
                                                   true, "", "string", cmd);
 
       TCLAP::ValueArg<std::string> arg_outdir("o", "outdir",
-						   "The output directory",
-						   false, "./candidates/", "string",cmd);
-
+					      "The output directory",
+					      false, get_utc_str(), "string",cmd);
+      
       TCLAP::ValueArg<std::string> arg_killfilename("k", "killfile",
 						    "Channel mask file",
 						    false, "", "string",cmd);

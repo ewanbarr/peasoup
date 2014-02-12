@@ -1,16 +1,14 @@
 #pragma once
 
-void device_harmonic_sum_II(float* d_input_array, 
-			    float** d_output_array,
-                            size_t size, 
-			    unsigned nharms,
-			    unsigned int max_blocks,
-			    unsigned int max_threads);
+typedef struct {
+  unsigned subint;
+  unsigned phasebin;
+} peasoup_fold_plan;
 
-void device_harmonic_sum(float* d_input_array,
-			 float* d_output_array,
-			 size_t original_size,
-			 int harmonic,
+void device_harmonic_sum(float* d_input_array, 
+			 float** d_output_array,
+			 size_t size, 
+			 unsigned nharms,
 			 unsigned int max_blocks,
 			 unsigned int max_threads);
 
@@ -28,6 +26,14 @@ void device_resample(float * d_idata,
 		     float timestep,
 		     unsigned int block_size,
 		     unsigned int max_blocks);
+
+void device_resampleII(float * d_idata,
+                     float * d_odata,
+                     size_t length,
+                     float a,
+                     float timestep,
+                     unsigned int block_size,
+                     unsigned int max_blocks);
 
 int device_find_peaks(int n,
 		      int start_index,

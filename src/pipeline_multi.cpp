@@ -125,8 +125,8 @@ public:
     Dereddener rednoise(size/2+1);
     SpectrumFormer former;
     PeakFinder cand_finder(args.min_snr,args.min_freq,args.max_freq);
-    HarmonicFolder harm_folder;
     HarmonicSums<float> sums(pspec,args.nharmonics);
+    HarmonicFolder harm_folder(sums);
     std::vector<float> acc_list;
     HarmonicDistiller harm_finder(args.freq_tol,args.max_harm,false);
     AccelerationDistiller acc_still(tobs,args.freq_tol,true);
@@ -211,7 +211,7 @@ public:
 
 	if (args.verbose)
 	  std::cout << "Harmonic summing" << std::endl;
-	harm_folder.fold(pspec,sums);
+	harm_folder.fold(pspec);
 
 	if (args.verbose)
 	  std::cout << "Finding peaks" << std::endl;
@@ -372,8 +372,10 @@ int main(int argc, char **argv)
   int new_size = std::min(args.limit,(int) dm_cands.cands.size());
   dm_cands.cands.resize(new_size);
 
+    
   CandidateFileWriter cand_files(args.outdir);
-  cand_files.write_binaries(dm_cands.cands);
+  //cand_files.write_binaries(dm_cands.cands);
+  cand_files.write_binary(dm_cands.cands,"candidates.peasoup");
   
   OutputFileWriter stats;
   stats.add_misc_info();
@@ -389,7 +391,8 @@ int main(int argc, char **argv)
   for (int device_idx=0;device_idx<nthreads;device_idx++)
     device_idxs.push_back(device_idx);
   stats.add_gpu_info(device_idxs);
-  stats.add_candidates(dm_cands.cands,cand_files.filenames);
+  //stats.add_candidates(dm_cands.cands,cand_files.filenames);
+  stats.add_candidates(dm_cands.cands,cand_files.byte_mapping);
   timers["total"].stop();
   stats.add_timing_info(timers);
   

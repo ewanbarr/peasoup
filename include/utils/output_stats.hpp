@@ -72,7 +72,7 @@ public:
   void add_search_parameters(CmdLineOptions& args){
     XML::Element search_options("search_parameters");
     search_options.append(XML::Element("infilename",args.infilename));
-    search_options.append(XML::Element("outfilename",args.outdir));
+    search_options.append(XML::Element("outdir",args.outdir));
     search_options.append(XML::Element("killfilename",args.killfilename));
     search_options.append(XML::Element("zapfilename",args.zapfilename));
     search_options.append(XML::Element("max_num_threads",args.max_num_threads));
@@ -165,7 +165,33 @@ public:
     root.append(acc_trials);
   }
 
-  void add_candidates(std::vector<Candidate>& candidates, std::map<int,std::string>& filenames){
+  void add_candidates(std::vector<Candidate>& candidates, 
+		      std::map<unsigned,long int> byte_map)
+  {
+    XML::Element cands("candidates");
+    for (int ii=0;ii<candidates.size();ii++){
+      XML::Element cand("candidate");
+      cand.add_attribute("id",ii);
+      cand.append(XML::Element("period",1.0/candidates[ii].freq));
+      cand.append(XML::Element("opt_period",candidates[ii].opt_period));
+      cand.append(XML::Element("dm",candidates[ii].dm));
+      cand.append(XML::Element("acc",candidates[ii].acc));
+      cand.append(XML::Element("nh",candidates[ii].nh));
+      cand.append(XML::Element("snr",candidates[ii].snr));
+      cand.append(XML::Element("folded_snr",candidates[ii].folded_snr));
+      cand.append(XML::Element("is_adjacent",candidates[ii].is_adjacent));
+      cand.append(XML::Element("is_physical",candidates[ii].is_physical));
+      cand.append(XML::Element("ddm_count_ratio",candidates[ii].ddm_count_ratio));
+      cand.append(XML::Element("ddm_snr_ratio",candidates[ii].ddm_snr_ratio));
+      cand.append(XML::Element("nassoc",candidates[ii].count_assoc()));
+      cand.append(XML::Element("byte offset",byte_map[ii]));
+      cands.append(cand);
+    }
+    root.append(cands);
+  }
+
+  void add_candidates(std::vector<Candidate>& candidates,
+		      std::map<int,std::string>& filenames){
     XML::Element cands("candidates");
     for (int ii=0;ii<candidates.size();ii++){
       XML::Element cand("candidate");
@@ -194,6 +220,7 @@ public:
 class CandidateFileWriter {
 public:
   std::map<int,std::string> filenames;
+  std::map<unsigned,long int> byte_mapping;
   std::string output_dir;
  
   CandidateFileWriter(std::string output_directory)
@@ -201,8 +228,44 @@ public:
   {
     struct stat st = {0};
     if (stat(output_dir.c_str(), &st) == -1) {
-      mkdir(output_dir.c_str(), 0777);
+      if (mkdir(output_dir.c_str(), 0777) != 0)
+	perror(output_dir.c_str());	
     }
+  }
+
+  void write_binary(std::vector<Candidate>& candidates,
+		    std::string filename)
+  {
+    char actualpath [PATH_MAX];
+    std::stringstream filepath;
+    filepath << output_dir << "/" << filename;
+    realpath(filepath.str().c_str(), actualpath);
+    
+    FILE* fo = fopen(actualpath,"w");
+    if (fo == NULL) {
+      perror(filepath.str().c_str());
+      return;
+    }
+    
+    for (int ii=0;ii<candidates.size();ii++)
+      {
+	byte_mapping[ii] = ftell(fo);
+	if (candidates[ii].fold.size()>0)
+	  {
+	    size_t size = candidates[ii].nbins * candidates[ii].nints;
+	    float* fold = &candidates[ii].fold[0];
+	    fprintf(fo,"FOLD");
+	    fwrite(&candidates[ii].nbins,sizeof(int),1,fo);
+	    fwrite(&candidates[ii].nints,sizeof(int),1,fo);
+	    fwrite(fold,sizeof(float),size,fo);
+	  }
+	std::vector<CandidatePOD> detections;
+	candidates[ii].collect_candidates(detections);
+	int ndets = detections.size();
+	fwrite(&ndets,sizeof(int),1,fo);
+	fwrite(&detections[0],sizeof(CandidatePOD),ndets,fo);
+      }
+    fclose(fo);
   }
   
   void write_binaries(std::vector<Candidate>& candidates)
@@ -210,7 +273,6 @@ public:
     char actualpath [PATH_MAX];
     char filename[1024];
     std::stringstream filepath;
-    char timestr[1024];
     for (int ii=0;ii<candidates.size();ii++){
       filepath.str("");
       sprintf(filename,"cand_%04d_%.5f_%.1f_%.1f.peasoup",

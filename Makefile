@@ -23,7 +23,7 @@ NVCCFLAGS  = ${OPTIMISE} ${NVCC_COMP_FLAGS} --machine 64 -Xcompiler ${DEBUG}
 CFLAGS    = -fPIC ${OPTIMISE} ${DEBUG}
 
 OBJECTS   = ${OBJ_DIR}/kernels.o
-EXE_FILES = ${BIN_DIR}/harmonic_sum_test ${BIN_DIR}/peasoup
+EXE_FILES = ${BIN_DIR}/peasoup ${BIN_DIR}/resampling_test ${BIN_DIR}/harmonic_sum_test
 
 all: directories ${OBJECTS} ${EXE_FILES}
 
@@ -34,6 +34,9 @@ ${BIN_DIR}/peasoup: ${SRC_DIR}/pipeline_multi.cpp ${OBJECTS}
 	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
 
 ${BIN_DIR}/harmonic_sum_test: ${SRC_DIR}/harmonic_sum_test.cpp ${OBJECTS}
+	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
+
+${BIN_DIR}/resampling_test: ${SRC_DIR}/resampling_test.cpp ${OBJECTS}
 	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
 
 ${BIN_DIR}/coincidencer: ${SRC_DIR}/coincidencer.cpp ${OBJECTS}
