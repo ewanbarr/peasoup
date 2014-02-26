@@ -10,7 +10,7 @@
 #include "cuda.h"
 #include "cufft.h"
 
-#define NBINS 100
+#define NBINS 10000000
 #define BINWIDTH 0.003725290
 #define NFOLDS 4
 
@@ -31,11 +31,14 @@ int main()
   
   HarmonicSums<float> sums(pspec, NFOLDS);
   HarmonicFolder folder(sums);
-  folder.fold(pspec);
+
+  for (int jj=0;jj<100;jj++)
+    folder.fold(pspec);
   
-  float* sums0_test_block;
-  Utils::host_malloc<float>(&sums0_test_block,NBINS);
-  
+  //float* sums0_test_block;
+  //Utils::host_malloc<float>(&sums0_test_block,NBINS);
+
+  /*
   for (int jj=0; jj<NFOLDS; jj++)
     {
       Utils::d2hcpy<float>(sums0_test_block,sums[jj]->get_data(),NBINS);
@@ -45,9 +48,9 @@ int main()
 	}
       
     }
-
+  */
   Utils::host_free(test_pattern);
-  Utils::host_free(sums0_test_block);
+  //Utils::host_free(sums0_test_block);
   return 0;
 }
 

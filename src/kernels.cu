@@ -20,9 +20,7 @@
 #include <utils/exceptions.hpp>
 #include <utils/utils.hpp>
 #include <thrust/adjacent_difference.h>
-
-
-
+#include <math.h>
 
 //--------------Harmonic summing----------------//
 
@@ -38,7 +36,7 @@ void harmonic_sum_kernel(float *d_idata, float **d_odata,
       
       if (nharms>0)
 	{
-      	  val += d_idata[(int) (idx/2.0 + 0.5)];
+      	  val += d_idata[(int) (idx*0.5 + 0.5)];
 	  d_odata[0][idx] = val*rsqrt(2.0);
 	}
       
@@ -89,10 +87,109 @@ void harmonic_sum_kernel(float *d_idata, float **d_odata,
 	  val += d_idata[(int) (idx * 0.84375 + 0.5)];
 	  val += d_idata[(int) (idx * 0.90625 + 0.5)];
 	  val += d_idata[(int) (idx * 0.96875 + 0.5)];
+	  d_odata[4][idx] = val*rsqrt(32.0);
 	}
     }
   return;
 }
+
+/*
+__global__
+void harmonic_sum_kernel_wshared(float *d_idata, float **d_odata,
+                         size_t size, unsigned nharms)
+
+{
+  
+  __shared__ float buffer [sizeof(float)*512];
+    
+
+  for( int idx = blockIdx.x*blockDim.x + threadIdx.x ; idx < size ; idx += blockDim.x*gridDim.x )
+    {
+      float val = d_idata[idx];
+
+      int thread_by_fold;
+      int blockdim_by_fold;
+
+      if (nharms>0)
+        {
+	  
+	  thread_by_fold = threadIdx.x/2;
+	  if (threadIdx.x % 2 == 0)
+	    {
+	      buffer[thread_by_fold] = d_idata[(int) (idx*0.5)];
+	    }
+	  //__syncthreads();
+	  
+	  val += buffer[thread_by_fold];
+          d_odata[0][idx] = val*rsqrt(2.0);
+        }
+
+      if (nharms>1)
+        {
+	  thread_by_fold = threadIdx.x/4;
+	  blockdim_by_fold = blockDim.x/4;
+	  if (threadIdx.x % 4 == 0)
+            {
+              buffer[thread_by_fold]                    = d_idata[(int) (idx*0.75)];
+	      buffer[thread_by_fold + blockdim_by_fold] = d_idata[(int) (idx*0.25)];
+            }
+          //__syncthreads();
+	  val += buffer[thread_by_fold];
+	  val += buffer[thread_by_fold + blockdim_by_fold];
+	  d_odata[1][idx] = val*0.5;
+        }
+
+      if (nharms>2)
+        {
+	  thread_by_fold = threadIdx.x/8;
+          blockdim_by_fold = blockDim.x/8;
+	  if (threadIdx.x % 8 == 0)
+            {
+              buffer[thread_by_fold]                     = d_idata[(int) (idx*0.125)];
+              buffer[thread_by_fold+ blockdim_by_fold]   = d_idata[(int) (idx*0.375)];
+	      buffer[thread_by_fold+ 2*blockdim_by_fold] = d_idata[(int) (idx*0.625)];
+	      buffer[thread_by_fold+ 3*blockdim_by_fold] = d_idata[(int) (idx*0.875)];
+            }
+          //__syncthreads();
+
+	  val += buffer[thread_by_fold];
+	  val += buffer[thread_by_fold + blockdim_by_fold];
+	  val += buffer[thread_by_fold + 2*blockdim_by_fold];
+	  val += buffer[thread_by_fold + 3*blockdim_by_fold];
+          d_odata[2][idx] = val*rsqrt(8.0);
+        }
+
+      if (nharms>3)
+        {
+	  thread_by_fold = threadIdx.x/16;
+          blockdim_by_fold = blockDim.x/16;
+          if (threadIdx.x % 16 == 0)
+            {
+              buffer[thread_by_fold]                     = d_idata[(int) (idx*0.0625)];
+              buffer[thread_by_fold+ blockdim_by_fold]   = d_idata[(int) (idx*0.1875)];
+              buffer[thread_by_fold+ 2*blockdim_by_fold] = d_idata[(int) (idx*0.3125)];
+              buffer[thread_by_fold+ 3*blockdim_by_fold] = d_idata[(int) (idx*0.4375)];
+	      buffer[thread_by_fold+ 4*blockdim_by_fold] = d_idata[(int) (idx*0.5625)];
+	      buffer[thread_by_fold+ 5*blockdim_by_fold] = d_idata[(int) (idx*0.6875)];
+	      buffer[thread_by_fold+ 6*blockdim_by_fold] = d_idata[(int) (idx*0.8125)];
+	      buffer[thread_by_fold+ 7*blockdim_by_fold] = d_idata[(int) (idx*0.9375)];
+            }
+          //__syncthreads();
+	  
+	  val += buffer[thread_by_fold];
+	  val += buffer[thread_by_fold+ blockdim_by_fold];
+	  val += buffer[thread_by_fold+ 2*blockdim_by_fold];
+	  val += buffer[thread_by_fold+ 3*blockdim_by_fold];
+	  val += buffer[thread_by_fold+ 4*blockdim_by_fold];
+	  val += buffer[thread_by_fold+ 5*blockdim_by_fold];
+	  val += buffer[thread_by_fold+ 6*blockdim_by_fold];
+	  val += buffer[thread_by_fold+ 7*blockdim_by_fold];
+	  
+          d_odata[3][idx] = val*0.25;
+        }
+    }
+  return;
+  }*/
 
 void device_harmonic_sum(float* d_input_array, float** d_output_array,
 			 size_t size, unsigned nharms, 

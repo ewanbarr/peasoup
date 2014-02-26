@@ -23,7 +23,27 @@ def radec_to_str(val):
     zz = "%07.4f"%(zz)
     return "%02d:%02d:%s"%(sign*xx,yy,zz)
 
-class CandidateFile(object):
+
+class Candidate(object):
+    def __init__(self,cand_dict,fold,hits):
+        for key,value in cand_dict.items():
+            setattr(self,key,value)
+        self.fold = fold
+        self.hits = hits
+        
+
+class PeasoupOutput(object):
+    def __init__(self, overview_file, candidate_file):
+        self._xml_parser = OverviewFile(overview_file)
+        self._cand_parser = CandidateFileParser(candidate_file)
+
+    def get_candidate(self, idx):
+        cand_dict = self._xml_parser.get_candidate(idx)
+        fold,hits = self._cand_parser.cand_from_offset(cand_dict["byte_offset"])
+        return Candidate(cand_dict,fold,hits)
+
+
+class CandidateFileParser(object):
     _dtype = [("dm","float32"),
               ("dm_idx","int32"),
               ("acc","float32"),
@@ -31,24 +51,35 @@ class CandidateFile(object):
               ("snr","float32"),
               ("freq","float32")]
 
-    def __init__(self,name):
-        self.cands = None
-        self.fold = None
-        self._read(name)
-
-    def _read(self,name):
-        with open(name,"r") as f:
-            if f.read(4) == "FOLD":
-                nbins,nints = unpack("II",f.read(8))
-                fold = np.fromfile(f,dtype="float32",count=nbins*nints)
-                self.fold = fold.reshape(nints,nbins)
-                #self.fold = np.hstack((fold,fold))
-            else:
-                self.fold = None
-                f.seek(0,os.SEEK_SET)
-            count = unpack("I",f.read(4))[0]
-            self.cands = np.fromfile(f,dtype=self._dtype,count=count)
+    def __init__(self, filename):
+        self._f = open(filename,"r")
         
+    def _read_fold(self):
+        nbins,nints = unpack("II",self._f.read(8))
+        fold = np.fromfile(self._f,dtype="float32",count=nbins*nints)
+        fold = fold.reshape(nints,nbins)
+        return fold
+        
+    def _read_hits(self):
+        count, = unpack("I",self._f.read(4))
+        cands = np.fromfile(self._f,dtype=self._dtype,count=count)
+        return cands
+
+    def cand_from_offset(self, offset):
+        self._f.seek(offset)
+        if self._f.read(4) == "FOLD":
+            fold = self._read_fold()
+            hits = self._read_hits()
+            return fold,hits
+        else:
+            self._f.seek(offset)
+            hits = self._read_hits()
+            return None,hits
+    
+    def __del__(self):
+        self._f.close()
+    
+
 class OverviewFile(object):
     _ar_dtype = [('period','float32'),
                  ('dm','float32'),
@@ -68,7 +99,7 @@ class OverviewFile(object):
               ('ddm_count_ratio','float32'),
               ('ddm_snr_ratio','float32'),
               ('nassoc','int32'),
-              ('results_file',"|S256")]
+              ('byte_offset',"int32")]
 
     def __init__(self,name):
         with open(name,"r") as f:

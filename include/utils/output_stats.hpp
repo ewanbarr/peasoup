@@ -184,7 +184,7 @@ public:
       cand.append(XML::Element("ddm_count_ratio",candidates[ii].ddm_count_ratio));
       cand.append(XML::Element("ddm_snr_ratio",candidates[ii].ddm_snr_ratio));
       cand.append(XML::Element("nassoc",candidates[ii].count_assoc()));
-      cand.append(XML::Element("byte offset",byte_map[ii]));
+      cand.append(XML::Element("byte_offset",byte_map[ii]));
       cands.append(cand);
     }
     root.append(cands);

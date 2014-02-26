@@ -372,9 +372,7 @@ int main(int argc, char **argv)
   int new_size = std::min(args.limit,(int) dm_cands.cands.size());
   dm_cands.cands.resize(new_size);
 
-    
   CandidateFileWriter cand_files(args.outdir);
-  //cand_files.write_binaries(dm_cands.cands);
   cand_files.write_binary(dm_cands.cands,"candidates.peasoup");
   
   OutputFileWriter stats;
@@ -391,18 +389,13 @@ int main(int argc, char **argv)
   for (int device_idx=0;device_idx<nthreads;device_idx++)
     device_idxs.push_back(device_idx);
   stats.add_gpu_info(device_idxs);
-  //stats.add_candidates(dm_cands.cands,cand_files.filenames);
   stats.add_candidates(dm_cands.cands,cand_files.byte_mapping);
   timers["total"].stop();
   stats.add_timing_info(timers);
   
-  std::stringstream filepath;
-  filepath << args.outdir << "/" << "overview.xml";
-  stats.to_file(filepath.str());
-  
-
-
-
+  std::stringstream xml_filepath;
+  xml_filepath << args.outdir << "/" << "overview.xml";
+  stats.to_file(xml_filepath.str());
   
   return 0;
 }
