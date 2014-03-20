@@ -14,13 +14,13 @@ DEBUG    =
 
 # Includes and libraries
 INCLUDE  = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I${DEDISP_DIR}/include -I${CUDA_DIR}/include -I./tclap
-LIBS = -L$(CUDA_DIR)/lib64 -lcuda -lcudart -L${DEDISP_DIR}/lib -ldedisp -lcufft -lpthread
+LIBS = -L$(CUDA_DIR)/lib64 -lcuda -lcudart -L${DEDISP_DIR}/lib -ldedisp -lcufft -lpthread -lnvToolsExt
 
 # compiler flags
 # --compiler-options -Wall
 NVCC_COMP_FLAGS = -gencode=arch=compute_20,code=sm_20 -gencode=arch=compute_30,code=sm_30
-NVCCFLAGS  = ${OPTIMISE} ${NVCC_COMP_FLAGS} --machine 64 -Xcompiler ${DEBUG} 
-CFLAGS    = -fPIC ${OPTIMISE} ${DEBUG}
+NVCCFLAGS  = ${UCFLAGS} ${OPTIMISE} ${NVCC_COMP_FLAGS} --machine 64 -Xcompiler ${DEBUG} 
+CFLAGS    = ${UCFLAGS} -fPIC ${OPTIMISE} ${DEBUG}
 
 OBJECTS   = ${OBJ_DIR}/kernels.o
 EXE_FILES = ${BIN_DIR}/peasoup ${BIN_DIR}/resampling_test ${BIN_DIR}/harmonic_sum_test

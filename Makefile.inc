@@ -1,14 +1,15 @@
 # This is where common definitions go
 
 #cuda setup
-CUDA_DIR   = /usr/local/cuda-5.0/
-THRUST_DIR = /usr/local/cuda-5.0/include/
+CUDA_DIR   = $(CUDAROOT)
+THRUST_DIR = $(CUDAROOT)/include/
 
 #dedisp setup
-DEDISP_DIR = /mnt/home/ebarr/Soft/dedisp
+DEDISP_DIR = /homeb/zam/jkraus/workspace/PulsarSearch/dedisp
 
 GCC       = gcc
 GXX       = g++
 AR        = ar
-NVCC      = /usr/local/cuda-5.0/bin/nvcc
-SHELL     = /bin/csh
+NVCC      = $(CUDAROOT)/bin/nvcc
+SHELL     = /bin/bash
+UCFLAGS   = -DUSE_NVTX

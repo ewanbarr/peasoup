@@ -3,6 +3,7 @@
 #include <kernels/kernels.h>
 #include <kernels/defaults.h>
 #include <iostream>
+#include <utils/nvtx.hpp>
 
 class HarmonicFolder {
 private:
@@ -24,6 +25,7 @@ public:
   
   void fold(DevicePowerSpectrum<float>& fold0)
   {
+    PUSH_NVTX_RANGE("Harmonic summing",2)
     float** h_data_ptrs;
     float** d_data_ptrs;
     Utils::device_malloc<float*>(&d_data_ptrs,sums.size());
@@ -37,6 +39,7 @@ public:
     device_harmonic_sum(fold0.get_data(),d_data_ptrs,
 			fold0.get_nbins(),sums.size(),
 			max_blocks,max_threads);
+	POP_NVTX_RANGE
   }
   
   ~HarmonicFolder()
