@@ -3,6 +3,7 @@
 #include "data_types/candidates.hpp"
 #include "data_types/fourierseries.hpp"
 #include "kernels/kernels.h"
+#include <thrust/device_vector.h>
 #include "utils/utils.hpp"
 #include <cmath>
 #include <algorithm>
@@ -19,6 +20,9 @@ private:
   std::vector<int> peakidxs;
   std::vector<float> peaksnrs;
   std::vector<float> peakfreqs;
+  thrust::device_vector<int> d_idxs;
+  thrust::device_vector<float> d_snrs;
+  cached_allocator allocator;
   
   int identify_unique_peaks(unsigned int count)
   {
@@ -52,7 +56,7 @@ private:
   }
 
 public:
-  PeakFinder(float threshold, float min_freq, float max_freq, int min_gap=30)
+  PeakFinder(float threshold, float min_freq, float max_freq, unsigned int size, int min_gap=30)
     :threshold(threshold), min_freq(min_freq), 
      max_freq(max_freq),min_gap(min_gap),max_cands(100000)
   {
@@ -61,6 +65,8 @@ public:
     peakidxs.resize(max_cands);
     peaksnrs.resize(max_cands);
     peakfreqs.resize(max_cands);
+    d_idxs.resize(size);
+    d_snrs.resize(size);
   }
 
   void find_candidates(HarmonicSums<float>& sums, SpectrumCandidates& cands){
@@ -73,12 +79,12 @@ public:
     float nyquist = pspec.get_bin_width()*size;
     int orig_size = 2.0*(size-1.0);
     int nh = pspec.get_nh();
-    
     int max_bin = (int)((max_freq/pspec.get_bin_width())*pow(2.0,nh));
     int start_idx = (int)(orig_size*(min_freq/nyquist)*pow(2.0,nh));
-    int count = device_find_peaks(std::min(size,max_bin), 
-				  start_idx, pspec.get_data(), 
-				  threshold, &idxs[0], &snrs[0]);
+    int count = device_find_peaks(std::min(size,max_bin),
+                                  start_idx, pspec.get_data(),
+                                  threshold, &idxs[0], &snrs[0],
+				  d_idxs,d_snrs,allocator);
     int npeaks = identify_unique_peaks(count);
     float factor = 1.0/size*nyquist/pow(2.0,(float)nh);
     for (int ii=0;ii<npeaks;ii++){

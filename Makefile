@@ -23,7 +23,7 @@ NVCCFLAGS  = ${OPTIMISE} ${NVCC_COMP_FLAGS} --machine 64 -Xcompiler ${DEBUG}
 CFLAGS    = -fPIC ${OPTIMISE} ${DEBUG}
 
 OBJECTS   = ${OBJ_DIR}/kernels.o
-EXE_FILES = ${BIN_DIR}/peasoup ${BIN_DIR}/resampling_test ${BIN_DIR}/harmonic_sum_test
+EXE_FILES = ${BIN_DIR}/peasoup #${BIN_DIR}/resampling_test ${BIN_DIR}/harmonic_sum_test
 
 all: directories ${OBJECTS} ${EXE_FILES}
 

@@ -103,7 +103,18 @@ class OverviewFile(object):
 
     def __init__(self,name):
         with open(name,"r") as f:
-            self._xml = etree.fromstring(f.read())
+            xml_string = f.read()
+            
+        try:
+            self._xml = etree.fromstring(xml_string)
+        except etree.XMLSyntaxError:
+            start = "<username>"
+            end = "</username>"
+            start_idx = xml_string.find(start)+len(start)
+            end_idx = xml_string.find(end)
+            new_xml_string = "pulsar".join([ xml_string[:start_idx] , xml_string[end_idx:] ])
+            self._xml = etree.fromstring(new_xml_string)
+
         self._candidates = self._xml.find("candidates").findall("candidate")
         self._ncands = len(self._candidates)
             
@@ -111,9 +122,9 @@ class OverviewFile(object):
         return etree.tostring(self._xml,pretty_print=True)
         
     def as_array(self):
-        cands = np.recarray(self._ncands,dtype=self._ar_dtype)
+        cands = np.recarray(self._ncands,dtype=self._dtype)
         for cand,candidate in zip(cands,self._candidates):
-            for tag,typename in self._ar_dtype:
+            for tag,typename in self._dtype:
                 cand[tag] = candidate.find(tag).text
         return cands
 

@@ -88,6 +88,7 @@ private:
   AccelerationPlan& acc_plan;
   unsigned int size;
   int device;
+  std::map<std::string,Stopwatch> timers;
   
 public:
   CandidateCollection dm_trial_cands;
@@ -98,6 +99,12 @@ public:
   
   void start(void)
   {
+    //Generate some timer instances for benchmarking
+    //timers["get_dm_trial"]      = Stopwatch();
+    //timers["copy_to_device"] = Stopwatch();
+    //timers["rednoise"]    = Stopwatch();
+    //timers["search"]      = Stopwatch();
+
     cudaSetDevice(device);
     Stopwatch pass_timer;
     pass_timer.start();
@@ -124,7 +131,7 @@ public:
     }
     Dereddener rednoise(size/2+1);
     SpectrumFormer former;
-    PeakFinder cand_finder(args.min_snr,args.min_freq,args.max_freq);
+    PeakFinder cand_finder(args.min_snr,args.min_freq,args.max_freq,size);
     HarmonicSums<float> sums(pspec,args.nharmonics);
     HarmonicFolder harm_folder(sums);
     std::vector<float> acc_list;
@@ -135,15 +142,22 @@ public:
     int ii;
 
     while (true){
+      //timers["get_trial_dm"].start();
       ii = manager.get_dm_trial_idx();
+      //timers["get_trial_dm"].stop();
+
       if (ii==-1)
 	break;
       trials.get_idx(ii,tim);
       
       if (args.verbose)
 	std::cout << "Copying DM trial to device (DM: " << tim.get_dm() << ")"<< std::endl;
+
+      //timers["copy_to_device"].start();
       d_tim.copy_from_host(tim);
+      //timers["copy_to_device"].stop();
       
+      //timers["rednoise"].start()
       if (padding){
 	padding_mean = stats::mean<float>(d_tim.get_data(),trials.get_nsamps());
 	d_tim.fill(trials.get_nsamps(),d_tim.get_nsamps(),padding_mean);
@@ -189,7 +203,8 @@ public:
       if (args.verbose)
 	std::cout << "Executing inverse FFT" << std::endl;
       c2rfft.execute(d_fseries.get_data(),d_tim.get_data());
-      
+      //timers["rednoise"].stop();
+   
       CandidateCollection accel_trial_cands;    
       for (int jj=0;jj<acc_list.size();jj++){
 	if (args.verbose)

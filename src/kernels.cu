@@ -21,6 +21,11 @@
 #include <utils/utils.hpp>
 #include <thrust/adjacent_difference.h>
 #include <math.h>
+#include <thrust/system/cuda/vector.h>
+#include <thrust/system/cuda/execution_policy.h>
+#include <map>
+
+
 
 //--------------Harmonic summing----------------//
 
@@ -384,7 +389,10 @@ struct greater_than_threshold : thrust::unary_function<thrust::tuple<int,float>,
 };
 
 int device_find_peaks(int n, int start_index, float * d_dat,
-		      float thresh, int * indexes, float * snrs)
+		      float thresh, int * indexes, float * snrs,
+		      thrust::device_vector<int>& d_index, 
+		      thrust::device_vector<float>& d_snrs,
+		      cached_allocator& policy)
 {
   
   using thrust::tuple;
@@ -392,19 +400,17 @@ int device_find_peaks(int n, int start_index, float * d_dat,
   using thrust::zip_iterator;
   // Wrap the device pointer to let Thrust know                              
   thrust::device_ptr<float> dptr_dat(d_dat + start_index);
-  thrust::device_vector<int> d_index(n-start_index);
-  thrust::device_vector<float> d_snrs(n-start_index);
   typedef thrust::device_vector<float>::iterator snr_iterator;
   typedef thrust::device_vector<int>::iterator indices_iterator;
   thrust::counting_iterator<int> iter(start_index);
   zip_iterator<tuple<counting_iterator<int>,thrust::device_ptr<float> > > zipped_iter = make_zip_iterator(make_tuple(iter,dptr_dat));
   zip_iterator<tuple<indices_iterator,snr_iterator> > zipped_out_iter = make_zip_iterator(make_tuple(d_index.begin(),d_snrs.begin()));
-  int num_copied = thrust::copy_if(zipped_iter, zipped_iter+n-start_index,
+  
+  //apply execution policy to get some speed up
+  int num_copied = thrust::copy_if(thrust::cuda::par(policy), zipped_iter, zipped_iter+n-start_index,
 				   zipped_out_iter,greater_than_threshold(thresh)) - zipped_out_iter;
   thrust::copy(d_index.begin(),d_index.begin()+num_copied,indexes);
   thrust::copy(d_snrs.begin(),d_snrs.begin()+num_copied,snrs);
-
-
   ErrorChecker::check_cuda_error("Error from device_find_peaks;");
   return(num_copied);
 }
@@ -566,20 +572,14 @@ void fold_filterbank_kernel(float* input, float* output, unsigned* count,
 	}
     }
 }
-*/
- /*
+
+
 int device_fold_filterbank(float* input, float* output, unsigned* count, 
 			   float tsamp, float period, float acceleration,
 			   unsigned nsubints, unsigned nbins, unsigned nchans,
 			   unsigned total_nsamps, unsigned nsamps, unsigned offset,
 			   unsigned max_blocks, unsigned max_threads)
 {
-  
-    Convert from nbit to float
-    fold
-    transpose folds
-    gpu pdmp
-  
   
   float tobs = total_nsamps*tsamp;
   float nrots = tobs/period;
@@ -591,8 +591,8 @@ int device_fold_filterbank(float* input, float* output, unsigned* count,
     (input, output, count, nchans, tsamp_by_period, accel_fact, nbins,
      nrots_per_subint, nsamps, offset);
     
-}
-*/
+     }*/
+
 
 __global__ 
 void fold_time_series_kernel(float* input, float* output, 

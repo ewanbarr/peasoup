@@ -24,11 +24,6 @@ public:
   
   void fold(DevicePowerSpectrum<float>& fold0)
   {
-    float** h_data_ptrs;
-    float** d_data_ptrs;
-    Utils::device_malloc<float*>(&d_data_ptrs,sums.size());
-    Utils::host_malloc<float*>(&h_data_ptrs,sums.size());
-    
     for (int ii=0;ii<sums.size();ii++)
       {
 	h_data_ptrs[ii] = sums[ii]->get_data();

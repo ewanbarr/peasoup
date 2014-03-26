@@ -2,7 +2,9 @@
 
 #cuda setup
 CUDA_DIR   = /usr/local/cuda-5.0/
-THRUST_DIR = /usr/local/cuda-5.0/include/
+
+#Thrust 1.7.1 or highe
+THRUST_DIR = /mnt/home/ebarr/Soft/thrust/thrust 
 
 #dedisp setup
 DEDISP_DIR = /mnt/home/ebarr/Soft/dedisp
