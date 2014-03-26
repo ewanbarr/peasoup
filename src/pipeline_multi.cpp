@@ -141,108 +141,109 @@ public:
     float padding_mean;
     int ii;
 
+	PUSH_NVTX_RANGE("DM-Loop",0)
     while (true){
       //timers["get_trial_dm"].start();
       ii = manager.get_dm_trial_idx();
       //timers["get_trial_dm"].stop();
 
       if (ii==-1)
-	break;
+        break;
       trials.get_idx(ii,tim);
       
       if (args.verbose)
 	std::cout << "Copying DM trial to device (DM: " << tim.get_dm() << ")"<< std::endl;
 
-      //timers["copy_to_device"].start();
       d_tim.copy_from_host(tim);
-      //timers["copy_to_device"].stop();
       
       //timers["rednoise"].start()
       if (padding){
-	padding_mean = stats::mean<float>(d_tim.get_data(),trials.get_nsamps());
-	d_tim.fill(trials.get_nsamps(),d_tim.get_nsamps(),padding_mean);
+	    padding_mean = stats::mean<float>(d_tim.get_data(),trials.get_nsamps());
+	    d_tim.fill(trials.get_nsamps(),d_tim.get_nsamps(),padding_mean);
       }
 
       if (args.verbose)
-	std::cout << "Generating accelration list" << std::endl;
+	    std::cout << "Generating accelration list" << std::endl;
       acc_plan.generate_accel_list(tim.get_dm(),acc_list);
       
       if (args.verbose)
-	std::cout << "Searching "<< acc_list.size()<< " acceleration trials for DM "<< tim.get_dm() << std::endl;
+	    std::cout << "Searching "<< acc_list.size()<< " acceleration trials for DM "<< tim.get_dm() << std::endl;
 
       if (args.verbose)
-	std::cout << "Executing forward FFT" << std::endl;
+	    std::cout << "Executing forward FFT" << std::endl;
       r2cfft.execute(d_tim.get_data(),d_fseries.get_data());
 
       if (args.verbose)
-	std::cout << "Forming power spectrum" << std::endl;
+	    std::cout << "Forming power spectrum" << std::endl;
       former.form(d_fseries,pspec);
 
       if (args.verbose)
-	std::cout << "Finding running median" << std::endl;
+	    std::cout << "Finding running median" << std::endl;
       rednoise.calculate_median(pspec);
 
       if (args.verbose)
-	std::cout << "Dereddening Fourier series" << std::endl;
+	    std::cout << "Dereddening Fourier series" << std::endl;
       rednoise.deredden(d_fseries);
 
       if (args.zapfilename!=""){
-	if (args.verbose)
-	  std::cout << "Zapping birdies" << std::endl;
-	bzap->zap(d_fseries);
+	    if (args.verbose)
+	      std::cout << "Zapping birdies" << std::endl;
+	    bzap->zap(d_fseries);
       }
 
       if (args.verbose)
-	std::cout << "Forming interpolated power spectrum" << std::endl;
+	    std::cout << "Forming interpolated power spectrum" << std::endl;
       former.form_interpolated(d_fseries,pspec);
 
       if (args.verbose)
-	std::cout << "Finding statistics" << std::endl;
+	    std::cout << "Finding statistics" << std::endl;
       stats::stats<float>(pspec.get_data(),size/2+1,&mean,&rms,&std);
 
       if (args.verbose)
-	std::cout << "Executing inverse FFT" << std::endl;
+	    std::cout << "Executing inverse FFT" << std::endl;
       c2rfft.execute(d_fseries.get_data(),d_tim.get_data());
-      //timers["rednoise"].stop();
-   
+
       CandidateCollection accel_trial_cands;    
+      PUSH_NVTX_RANGE("Acceleration-Loop",1)
+
       for (int jj=0;jj<acc_list.size();jj++){
-	if (args.verbose)
-	  std::cout << "Resampling to "<< acc_list[jj] << " m/s/s" << std::endl;
-	resampler.resample(d_tim,d_tim_r,size,acc_list[jj]);
+	    if (args.verbose)
+	      std::cout << "Resampling to "<< acc_list[jj] << " m/s/s" << std::endl;
+	    resampler.resample(d_tim,d_tim_r,size,acc_list[jj]);
 
+	    if (args.verbose)
+	      std::cout << "Execute forward FFT" << std::endl;
+	    r2cfft.execute(d_tim_r.get_data(),d_fseries.get_data());
+
+	    if (args.verbose)
+	      std::cout << "Form interpolated power spectrum" << std::endl;
+	    former.form_interpolated(d_fseries,pspec);
+
+	    if (args.verbose)
+	      std::cout << "Normalise power spectrum" << std::endl;
+	    stats::normalise(pspec.get_data(),mean*size,std*size,size/2+1);
+
+	    if (args.verbose)
+	      std::cout << "Harmonic summing" << std::endl;
+	    harm_folder.fold(pspec);
+		
+	    if (args.verbose)
+	      std::cout << "Finding peaks" << std::endl;
+	    SpectrumCandidates trial_cands(tim.get_dm(),ii,acc_list[jj]);
+	    cand_finder.find_candidates(pspec,trial_cands);
+	    cand_finder.find_candidates(sums,trial_cands);
 	
-	if (args.verbose)
-	  std::cout << "Execute forward FFT" << std::endl;
-	r2cfft.execute(d_tim_r.get_data(),d_fseries.get_data());
-
-	if (args.verbose)
-	  std::cout << "Form interpolated power spectrum" << std::endl;
-	former.form_interpolated(d_fseries,pspec);
-
-	if (args.verbose)
-	  std::cout << "Normalise power spectrum" << std::endl;
-	stats::normalise(pspec.get_data(),mean*size,std*size,size/2+1);
-
-	if (args.verbose)
-	  std::cout << "Harmonic summing" << std::endl;
-	harm_folder.fold(pspec);
-
-	if (args.verbose)
-	  std::cout << "Finding peaks" << std::endl;
-	SpectrumCandidates trial_cands(tim.get_dm(),ii,acc_list[jj]);
-	cand_finder.find_candidates(pspec,trial_cands);
-	cand_finder.find_candidates(sums,trial_cands);
-	
-	if (args.verbose)
-	  std::cout << "Distilling harmonics" << std::endl;
-	accel_trial_cands.append(harm_finder.distill(trial_cands.cands));
+	    if (args.verbose)
+	      std::cout << "Distilling harmonics" << std::endl;
+	      accel_trial_cands.append(harm_finder.distill(trial_cands.cands));
       }
+	  POP_NVTX_RANGE
       if (args.verbose)
-	std::cout << "Distilling accelerations" << std::endl;
+	    std::cout << "Distilling accelerations" << std::endl;
       dm_trial_cands.append(acc_still.distill(accel_trial_cands.cands));
     }
-
+	POP_NVTX_RANGE
+	
     if (args.zapfilename!="")
       delete bzap;
     
@@ -314,7 +315,9 @@ int main(int argc, char **argv)
     printf("Starting dedispersion...\n");
 
   timers["dedispersion"].start();
+  PUSH_NVTX_RANGE("Dedisperse",3)
   DispersionTrials<unsigned char> trials = dedisperser.dedisperse();
+  POP_NVTX_RANGE
   timers["dedispersion"].stop();
 
   if (args.progress_bar)
