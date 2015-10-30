@@ -399,4 +399,5 @@ bool read_header(BinaryStream& stream, Header& header) {
     // Seek back to the end of the header
     stream.seekg(header.size, std::ios::beg);
   }
+  return NULL;
 }

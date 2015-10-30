@@ -25,7 +25,7 @@
 #include <thrust/system/cuda/execution_policy.h>
 #include <map>
 
-
+#define SQRT2 1.4142135623730951f
 
 //--------------Harmonic summing----------------//
 
@@ -246,7 +246,7 @@ __global__ void bin_interbin_series_kernel(cufftComplex *d_idata,float* d_odata,
       float ampsq = re*re+im*im;
       float ampsq_diff = 0.5*((re-re_l)*(re-re_l) +
                               (im-im_l)*(im-im_l));
-      d_odata[idx] = sqrtf(max(ampsq,ampsq_diff));
+      d_odata[idx] = sqrtf(fmaxf(ampsq,ampsq_diff));
     }
   return;
 }
@@ -292,12 +292,12 @@ void device_form_power_series(cufftComplex* d_array_in,
 {
   BlockCalculator calc(size,max_blocks,max_threads);
   for (int ii=0;ii<calc.size();ii++){
-    if (way == 1)
+    if (way == 1)  
       bin_interbin_series_kernel<<<calc[ii].blocks,max_threads>>>
         (d_array_in, d_array_out, size, calc[ii].data_idx);
     else
       power_series_kernel<<<calc[ii].blocks,max_threads>>>
-        (d_array_in, d_array_out, size, calc[ii].data_idx);
+	(d_array_in, d_array_out, size, calc[ii].data_idx);
   }
   ErrorChecker::check_cuda_error("Error from device_form_power_series");
   return;

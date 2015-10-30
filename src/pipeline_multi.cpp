@@ -209,7 +209,7 @@ public:
       for (int jj=0;jj<acc_list.size();jj++){
 	    if (args.verbose)
 	      std::cout << "Resampling to "<< acc_list[jj] << " m/s/s" << std::endl;
-	    resampler.resample(d_tim,d_tim_r,size,acc_list[jj]);
+	    resampler.resampleII(d_tim,d_tim_r,size,acc_list[jj]);
 
 	    if (args.verbose)
 	      std::cout << "Execute forward FFT" << std::endl;

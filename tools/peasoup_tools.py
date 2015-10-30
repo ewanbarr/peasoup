@@ -87,20 +87,22 @@ class OverviewFile(object):
                  ('nh','float32'),
                  ('snr','float32')]
                  
-    _dtype = [('period','float32'),
-              ('opt_period','float32'),
-              ('dm','float32'),
-              ('acc','float32'),
-              ('nh','float32'),
-              ('snr','float32'),
-              ('folded_snr','float32'),
-              ('is_adjacent','ubyte'),
-              ('is_physical','ubyte'),
-              ('ddm_count_ratio','float32'),
-              ('ddm_snr_ratio','float32'),
-              ('nassoc','int32'),
-              ('byte_offset',"int32")]
-
+    _dtype = [
+        ('cand_num','int32'),
+        ('period','float32'),
+        ('opt_period','float32'),
+        ('dm','float32'),
+        ('acc','float32'),
+        ('nh','float32'),
+        ('snr','float32'),
+        ('folded_snr','float32'),
+        ('is_adjacent','ubyte'),
+        ('is_physical','ubyte'),
+        ('ddm_count_ratio','float32'),
+        ('ddm_snr_ratio','float32'),
+        ('nassoc','int32'),
+        ('byte_offset',"int32")]
+    
     def __init__(self,name):
         with open(name,"r") as f:
             xml_string = f.read()
@@ -124,21 +126,29 @@ class OverviewFile(object):
     def as_array(self):
         cands = np.recarray(self._ncands,dtype=self._dtype)
         for cand,candidate in zip(cands,self._candidates):
+            cand["cand_num"] = candidate.attrib["id"]
             for tag,typename in self._dtype:
-                cand[tag] = candidate.find(tag).text
+                if tag == "cand_num":
+                    cand["cand_num"] = candidate.attrib["id"]
+                else:
+                    cand[tag] = candidate.find(tag).text
+                              
         return cands
 
     def get_candidate(self,idx):
         cand_dict = {}
         cand = self._candidates[idx]
         for tag,typename in self._dtype:
-            value = cand.find(tag).text
+            if tag == "cand_num":
+                value = cand.attrib["id"]
+            else:
+                value = cand.find(tag).text
             cand_dict[tag] = np.asscalar(np.array([value]).astype(typename))
         return cand_dict
     
     def get_candidate_data(self,idx):
         cand_dict = self.get_candidate(idx)
-        return CandidateFile(cand_dict["results_file"])
+        return CandidateFileParser("candidates.peasoup")
 
     def make_predictor(self,idx):
         cand = self.get_candidate(idx)
@@ -155,8 +165,8 @@ class OverviewFile(object):
 
       
 class CandidatePlotter(object):
-    def __init__(self,overview):
-        self.overview = overview
+    def __init__(self,candidate):
+        self.candidate = candidate
         self.fig = plt.figure(figsize=[14,12])
         self.prof_ax = plt.subplot2grid([5,9],[0,1],colspan=2)
         self.fold_ax = plt.subplot2grid([5,9],[1,1],colspan=2,rowspan=2,sharex=self.prof_ax)
@@ -179,15 +189,15 @@ class CandidatePlotter(object):
             "write":Timer(),
             "clear":Timer()
             }
-        self.header = self.overview._xml.find("header_parameters")
-        self.fig.suptitle("Source name: %s"%self.header.find("source_name").text,fontsize=16)
+        self.header = self.candidate
+        #self.fig.suptitle("Source name: %s"%self.header.source_name,fontsize=16)
 
     def _plot_all_cands(self,ax):
-        ar = self.overview.as_array()
+        ar = self.candidate.hits
         ax.set_xscale("log")
+        """
         high_snr = ar[np.where(ar["snr"]>40.0)]
         low_snr = ar[np.where(ar["snr"]<=40.0)]
-        
         low_snr_sizes = low_snr["snr"]
         low_snr_sizes-= low_snr_sizes.min()
         low_snr_sizes/= low_snr_sizes.max()
@@ -195,9 +205,11 @@ class CandidatePlotter(object):
         low_snr_sizes+= 5
         ax.scatter(low_snr["period"],low_snr["dm"],c=low_snr["nh"],s=low_snr_sizes)
         ax.scatter(high_snr["period"],high_snr["dm"],c=high_snr["nh"],s=high_snr["snr"],marker="x")
+        """
+        ax.scatter(1/ar["freq"],ar["dm"],ar["snr"])
         ax.set_xlabel("Period (s)")
         ax.set_ylabel("DM (pccm^-3)")
-        ax.set_xlim(ar["period"].min(),ar["period"].max())
+        ax.set_xlim(1/(ar["freq"]).min(),(1/ar["freq"]).max())
         ax.set_ylim(ar["dm"].min(),ar["dm"].max())
         self.xline = ax.vlines(0,0,0)
         self.yline = ax.hlines(0,0,0)
@@ -219,8 +231,8 @@ class CandidatePlotter(object):
         self.acc_ax.cla()
         self.dm_acc_ax.cla()
 
-    def _fill_table(self,ax,header,stats):
-        self._set_crosshair(stats["period"],stats["dm"])
+    def _fill_table(self,ax,header):
+        self._set_crosshair(self.candidate.period,self.candidate.dm)
         ax.xaxis.set_major_locator(plt.NullLocator())
         ax.yaxis.set_major_locator(plt.NullLocator())
         ra = radec_to_str(float(header.find("src_raj").text))
@@ -333,18 +345,15 @@ class CandidatePlotter(object):
         ax.yaxis.set_label_position("right")
         plt.setp(ax.get_xticklabels(), visible=False)
 
-    def plot_cand(self,idx,filename=None):
+    def plot_cand(self,filename=None):
 
         self.timers["read"].start()
-        candfile  = self.overview.get_candidate_data(idx)
-        fold = candfile.fold
+        fold = self.candidate.fold
         if fold is not None:
             fold -= fold.min()
             fold /= fold.max()
-        cand = np.sort(candfile.cands,order="snr")[::-1]
+        cand = np.sort(self.candidate.hits,order="snr")[::-1]
         limits = [cand["dm"].min(),cand["dm"].max(),cand["acc"].min(),cand["acc"].max()]
-        stats = self.overview.get_candidate(idx)
-
         self.timers["read"].stop()
 
         self.timers["clear"].start()
@@ -357,8 +366,8 @@ class CandidatePlotter(object):
             self._plot_subints(self.fold_ax,fold)
             self._plot_subint_stats(self.subs_ax,fold)
         
-        self._fill_table(self.table_ax,self.header,stats)
-        if stats["period"] < 0.1:
+        #self._fill_table(self.table_ax,self.header)
+        if self.candidate.period < 0.1:
             self._plot_acc_dm_map(self.dm_acc_ax,cand,limits)
             self._plot_acc_scatter(self.acc_ax,cand)
         

@@ -1,4 +1,5 @@
 #include <transforms/resampler.hpp>
+#include <transforms/spectrumformer.hpp>
 #include <data_types/timeseries.hpp>
 #include <utils/exceptions.hpp>
 #include <utils/utils.hpp>
@@ -31,6 +32,9 @@ int main()
 
   DeviceTimeSeries<float> d_tim_r1(NBINS);
   d_tim_r1.set_tsamp(TSAMP);
+
+  //SpectrumFormer specformer
+
 
   TimeDomainResampler resampler;
   

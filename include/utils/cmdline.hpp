@@ -32,11 +32,37 @@ struct CmdLineOptions {
   bool progress_bar;
 };
 
+struct FFACmdLineOptions {
+  std::string infilename;
+  std::string outfilename;
+  std::string killfilename;
+  int max_num_threads;
+  unsigned int nstreams;
+  float dm_start;
+  float dm_end;
+  float dm_tol;
+  float dm_pulse_width;
+  float p_start;
+  float p_end;
+  float min_dc;
+  bool verbose;
+  bool progress_bar;
+};
+
+
 std::string get_utc_str()
 {
   char buf[128];
   std::time_t t = std::time(NULL);
   std::strftime(buf, 128, "./%Y-%m-%d-%H:%M_peasoup/", std::gmtime(&t));
+  return std::string(buf);
+}
+
+std::string get_default_ffa_output_filename()
+{
+  char buf[128];
+  std::time_t t = std::time(NULL);
+  std::strftime(buf, 128, "%Y-%m-%d-%H:%M_ffaster.output", std::gmtime(&t));
   return std::string(buf);
 }
 
@@ -171,6 +197,89 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
       args.max_freq          = arg_max_freq.getValue();
       args.max_harm          = arg_max_harm.getValue();
       args.freq_tol          = arg_freq_tol.getValue();
+      args.verbose           = arg_verbose.getValue();
+      args.progress_bar      = arg_progress_bar.getValue();
+
+    }catch (TCLAP::ArgException &e) {
+    std::cerr << "Error: " << e.error() << " for arg " << e.argId()
+              << std::endl;
+    return false;
+  }
+  return true;
+}
+
+bool read_ffa_cmdline_options(FFACmdLineOptions& args, int argc, char **argv)
+{
+  try
+    {
+      TCLAP::CmdLine cmd("Peasoup/FFAster extension - a GPU FFA pulsar search pipeline", ' ', "1.0");
+
+      TCLAP::ValueArg<std::string> arg_infilename("i", "inputfile",
+                                                  "File to process (.fil)",
+                                                  true, "", "string", cmd);
+
+      TCLAP::ValueArg<std::string> arg_outfilename("o", "outfilename",
+						   "The output filename",
+						   false, get_default_ffa_output_filename(), 
+						   "string",cmd);
+      
+      TCLAP::ValueArg<std::string> arg_killfilename("k", "killfile",
+                                                    "Channel mask file",
+                                                    false, "", "string",cmd);
+
+      TCLAP::ValueArg<int> arg_max_num_threads("t", "num_threads",
+                                               "The number of GPUs to use",
+                                               false, 14, "int", cmd);
+
+      TCLAP::ValueArg<unsigned int> arg_nstreams("", "nstreams",
+						 "The number of CUDA streams to use",
+						 false, 16, "unsigned int", cmd);
+
+      TCLAP::ValueArg<float> arg_dm_start("", "dm_start",
+                                          "First DM to dedisperse to",
+                                          false, 0.0, "float", cmd);
+
+      TCLAP::ValueArg<float> arg_dm_end("", "dm_end",
+                                        "Last DM to dedisperse to",
+                                        false, 100.0, "float", cmd);
+
+      TCLAP::ValueArg<float> arg_dm_tol("", "dm_tol",
+                                        "DM smearing tolerance (1.11=10%)",
+                                        false, 1.10, "float",cmd);
+
+      TCLAP::ValueArg<float> arg_dm_pulse_width("", "dm_pulse_width",
+                                                "Minimum pulse width for which dm_tol is valid",
+                                                false, 64.0, "float (us)",cmd);
+
+      TCLAP::ValueArg<float> arg_p_start("", "p_start",
+					 "Start period for FFA search",
+					 false, 0.8, "float (s)",cmd);
+      
+      TCLAP::ValueArg<float> arg_p_end("", "p_end",
+				       "End period for FFA search",
+				       false, 20.0, "float (s)",cmd);
+      
+      TCLAP::ValueArg<float> arg_min_dc("", "min_dc",
+					"Minimum duty cycle",
+					false, 0.001, "float (fraction)",cmd);
+
+      TCLAP::SwitchArg arg_verbose("v", "verbose", "verbose mode", cmd);
+
+      TCLAP::SwitchArg arg_progress_bar("p", "progress_bar", "Enable progress bar for DM search", cmd);
+
+      cmd.parse(argc, argv);
+      args.infilename        = arg_infilename.getValue();
+      args.outfilename       = arg_outfilename.getValue();
+      args.killfilename      = arg_killfilename.getValue();
+      args.max_num_threads   = arg_max_num_threads.getValue();
+      args.nstreams          = arg_nstreams.getValue();
+      args.dm_start          = arg_dm_start.getValue();
+      args.dm_end            = arg_dm_end.getValue();
+      args.dm_tol            = arg_dm_tol.getValue();
+      args.dm_pulse_width    = arg_dm_pulse_width.getValue();
+      args.p_start           = arg_p_start.getValue();
+      args.p_end             = arg_p_end.getValue();
+      args.min_dc            = arg_min_dc.getValue();
       args.verbose           = arg_verbose.getValue();
       args.progress_bar      = arg_progress_bar.getValue();
 

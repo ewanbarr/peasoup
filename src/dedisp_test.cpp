@@ -17,7 +17,7 @@
 
 int main(void)
 {
-  std::string filename("/lustre/projects/p002_swin/cflynn/products/linear/ewan2/2009-09-11-04:46:11/07/2009-09-11-04:46:11.fil");
+  std::string filename("/lustre/projects/p002_swin/ebarr/tmp.fil");
 
   std::cout << "Creating filterbank object" << std::endl;
   SigprocFilterbank filobj(filename);
@@ -26,7 +26,7 @@ int main(void)
   Dedisperser dedisperser(filobj,7);
   
   std::cout << "Generating a DM list" << std::endl;
-  dedisperser.generate_dm_list(50.0,400.0,40.0,1.05);
+  dedisperser.generate_dm_list(50.0,400.0,40.0,1.09);
   
   std::vector<float> dm_list = dedisperser.get_dm_list();
   std::cout << dm_list.size() << " DM trials" << std::endl;

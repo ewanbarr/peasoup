@@ -30,6 +30,7 @@ public:
     outfile.open(filename.c_str(),std::ifstream::out | std::ifstream::binary);
     ErrorChecker::check_file_error(outfile, filename);
     outfile << root.to_string(true);
+    ErrorChecker::check_file_error(outfile, filename);
     outfile.close();
   }
   

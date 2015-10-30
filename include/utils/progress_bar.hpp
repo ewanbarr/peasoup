@@ -4,7 +4,7 @@
 #include "stdio.h"
 #include <utils/stopwatch.hpp>
 
-void* progress_printer(void* progress_){
+void *progress_printer(void* progress_){
 
   float* progress = (float*) progress_;
   float val;
@@ -40,6 +40,7 @@ void* progress_printer(void* progress_){
     usleep(100000);
     prev = val;
   }
+  return NULL;
 }
 
 class ProgressBar {
