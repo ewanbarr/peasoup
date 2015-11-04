@@ -10,11 +10,11 @@ INCLUDE_DIR = ./include
 
 # Compiler flags
 OPTIMISE = -O3
-DEBUG    = 
+DEBUG    =
 
 # Includes and libraries
 INCLUDE  = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I${DEDISP_DIR}/include -I${CUDA_DIR}/include -I./tclap
-LIBS = -L$(CUDA_DIR)/lib64 -lcuda -lcudart -L${DEDISP_DIR}/lib -ldedisp -lcufft -lpthread -lnvToolsExt
+LIBS = -L$(CUDA_DIR)/lib64 -lcudart -L${DEDISP_DIR}/lib -ldedisp -lcufft -lpthread -lnvToolsExt
 
 FFASTER_DIR = /mnt/home/ebarr/Soft/FFAster
 FFASTER_INCLUDES = -I${FFASTER_DIR}/include -L${FFASTER_DIR}/lib -lffaster
@@ -35,7 +35,7 @@ all: directories ${OBJECTS} ${EXE_FILES}
 ${OBJ_DIR}/kernels.o: ${SRC_DIR}/kernels.cu
 	${NVCC} -c ${NVCCFLAGS} ${INCLUDE} $<  -o $@
 
-${BIN_DIR}/peasoup: ${SRC_DIR}/pipeline_multi.cpp ${OBJECTS}
+${BIN_DIR}/peasoup: ${SRC_DIR}/pipeline_multi.cu ${OBJECTS}
 	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
 
 ${BIN_DIR}/ffaster: ${SRC_DIR}/ffa_pipeline.cu ${OBJECTS}
@@ -74,3 +74,4 @@ directories:
 
 clean:
 	@rm -rf ${OBJ_DIR}/*
+
