@@ -207,8 +207,8 @@ public:
     tstart(0.0), tsamp(0.0), period(0.0), fch1(0.0), foff(0.0),
     nchans(0), telescope_id(0), machine_id(0), data_type(0),
     ibeam(0), nbeams(0), nbits(0), barycentric(0),
-    pulsarcentric(0),  nsamples(0), nifs(0), npuls(0),
-    refdm(0.0) {}
+    pulsarcentric(0), nbins(0), nsamples(0), nifs(0), npuls(0),
+    refdm(0.0), signed_data(0), size(0) {}
 };
 
 /*!
