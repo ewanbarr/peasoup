@@ -75,3 +75,5 @@ directories:
 clean:
 	@rm -rf ${OBJ_DIR}/*
 
+install: all
+	cp $(BIN_DIR)/peasoup $(INSTALL_DIR)/bin
