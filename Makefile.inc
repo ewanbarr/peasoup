@@ -1,5 +1,7 @@
 # This is where common definitions go
 
+INSTALL_DIR = /usr/local
+
 #cuda setup
 CUDA_DIR   = /usr/local/cuda/
 
