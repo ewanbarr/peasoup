@@ -43,13 +43,13 @@ public:
 
   template <class T>
   static void h2dcpy(T* d_ptr, T* h_ptr, unsigned int units){
-    cudaMemcpy(d_ptr,h_ptr,sizeof(T)*units,cudaMemcpyHostToDevice);
+    cudaMemcpy((void*)d_ptr, (void*) h_ptr, sizeof(T)*units, cudaMemcpyHostToDevice);
     ErrorChecker::check_cuda_error("Error from h2dcpy");
   }
 
   template <class T>
   static void d2hcpy(T* h_ptr, T* d_ptr, unsigned int units){
-    cudaMemcpy(h_ptr,d_ptr,sizeof(T)*units,cudaMemcpyDeviceToHost);
+    cudaMemcpy((void*) h_ptr,(void*) d_ptr,sizeof(T)*units,cudaMemcpyDeviceToHost);
     ErrorChecker::check_cuda_error("Error from d2hcpy");
   }
 

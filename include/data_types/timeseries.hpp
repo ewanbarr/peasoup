@@ -260,7 +260,8 @@ public:
     OnHostType* copy_buffer;
     Utils::device_malloc<OnDeviceType>(&this->data_ptr,this->nsamps);
     Utils::device_malloc<OnHostType>(&copy_buffer,this->nsamps);
-    Utils::h2dcpy(copy_buffer,host_tim.get_data(),this->nsamps*sizeof(OnHostType));
+    
+    Utils::h2dcpy(copy_buffer,host_tim.get_data(),this->nsamps);
     device_conversion<OnHostType,OnDeviceType>(copy_buffer, this->data_ptr,
                                                (unsigned int)this->nsamps,
                                                (unsigned int)MAX_BLOCKS,
@@ -336,7 +337,7 @@ public:
   {
     size_t size = std::min(host_tim.get_nsamps(),this->nsamps);
     this->tsamp = host_tim.get_tsamp();
-    Utils::h2dcpy(copy_buffer, host_tim.get_data(), size*sizeof(OnHostType));
+    Utils::h2dcpy(copy_buffer, host_tim.get_data(), size);
     device_conversion<OnHostType,OnDeviceType>(copy_buffer, this->data_ptr,
                                                (unsigned int)size,
                                                (unsigned int)MAX_BLOCKS,
