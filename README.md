@@ -15,4 +15,4 @@ There are two other branches in this repository which has been setup to adaptive
 2. **jerk_searcher**: This branch has a modified source code to also do a time domain resampling in the jerk phase space too before searching. This is currently work in progress. 
 
 Modified for handling 32 bit dedispersed timeseries. This takes in either a dm range with tolerance or a dm_list file
-=======
+
