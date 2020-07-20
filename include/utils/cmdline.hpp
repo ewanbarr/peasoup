@@ -14,6 +14,7 @@ struct CmdLineOptions {
   float dm_end;
   float dm_tol;
   float dm_pulse_width;
+  std::string dm_file; 
   float acc_start;
   float acc_end;
   float acc_tol;
@@ -100,21 +101,24 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
                                        "Transform size to use (defaults to lower power of two)",
                                        false, 0, "size_t", cmd);
 
+      TCLAP::ValueArg<std::string> arg_dm_file("", "dm_file",
+                                          "filename with dm list",
+                                          false, "none", "string", cmd);
       TCLAP::ValueArg<float> arg_dm_start("", "dm_start",
                                           "First DM to dedisperse to",
                                           false, 0.0, "float", cmd);
 
       TCLAP::ValueArg<float> arg_dm_end("", "dm_end",
                                         "Last DM to dedisperse to",
-                                        false, 100.0, "float", cmd);
+                                        false, 0.0, "float", cmd);
 
       TCLAP::ValueArg<float> arg_dm_tol("", "dm_tol",
                                         "DM smearing tolerance (1.11=10%)",
-                                        false, 1.10, "float",cmd);
+                                        false, 1.11, "float",cmd);
 
       TCLAP::ValueArg<float> arg_dm_pulse_width("", "dm_pulse_width",
                                                 "Minimum pulse width for which dm_tol is valid",
-                                                false, 64.0, "float (us)",cmd);
+                                                false, 64.0, "float (us)",cmd); 
 
       TCLAP::ValueArg<float> arg_acc_start("", "acc_start",
 					   "First acceleration to resample to",
@@ -180,8 +184,9 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
       args.max_num_threads   = arg_max_num_threads.getValue();
       args.limit             = arg_limit.getValue();
       args.size              = arg_size.getValue();
-      args.dm_start          = arg_dm_start.getValue();
+      args.dm_file           = arg_dm_file.getValue();
       args.dm_end            = arg_dm_end.getValue();
+      args.dm_start            = arg_dm_start.getValue();
       args.dm_tol            = arg_dm_tol.getValue();
       args.dm_pulse_width    = arg_dm_pulse_width.getValue();
       args.acc_start         = arg_acc_start.getValue();
@@ -235,7 +240,7 @@ bool read_ffa_cmdline_options(FFACmdLineOptions& args, int argc, char **argv)
 						 "The number of CUDA streams to use",
 						 false, 16, "unsigned int", cmd);
 
-      TCLAP::ValueArg<float> arg_dm_start("", "dm_start",
+      /*TCLAP::ValueArg<float> arg_dm_start("", "dm_start",
                                           "First DM to dedisperse to",
                                           false, 0.0, "float", cmd);
 
@@ -249,7 +254,7 @@ bool read_ffa_cmdline_options(FFACmdLineOptions& args, int argc, char **argv)
 
       TCLAP::ValueArg<float> arg_dm_pulse_width("", "dm_pulse_width",
                                                 "Minimum pulse width for which dm_tol is valid",
-                                                false, 64.0, "float (us)",cmd);
+                                                false, 64.0, "float (us)",cmd);*/
 
       TCLAP::ValueArg<float> arg_p_start("", "p_start",
 					 "Start period for FFA search",
@@ -273,10 +278,10 @@ bool read_ffa_cmdline_options(FFACmdLineOptions& args, int argc, char **argv)
       args.killfilename      = arg_killfilename.getValue();
       args.max_num_threads   = arg_max_num_threads.getValue();
       args.nstreams          = arg_nstreams.getValue();
-      args.dm_start          = arg_dm_start.getValue();
-      args.dm_end            = arg_dm_end.getValue();
-      args.dm_tol            = arg_dm_tol.getValue();
-      args.dm_pulse_width    = arg_dm_pulse_width.getValue();
+      //args.dm_start          = arg_dm_start.getValue();
+      //args.dm_end            = arg_dm_end.getValue();
+      //args.dm_tol            = arg_dm_tol.getValue();
+      //args.dm_pulse_width    = arg_dm_pulse_width.getValue();
       args.p_start           = arg_p_start.getValue();
       args.p_end             = arg_p_end.getValue();
       args.min_dc            = arg_min_dc.getValue();

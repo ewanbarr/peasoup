@@ -22,6 +22,7 @@
 #include <utils/output_stats.hpp>
 #include <string>
 #include <iostream>
+#include <fstream>
 #include <stdio.h>
 #include <unistd.h>
 #include "cuda.h"
@@ -261,6 +262,37 @@ void* launch_worker_thread(void* ptr){
 }
 
 
+bool getFileContent(std::string fileName, std::vector<float> & vecOfDMs)
+{
+    // Open the File
+    std::ifstream in(fileName.c_str());
+    // Check if object is valid
+    if(!in)
+    {
+        std::cerr << "Cannot open the File : "<<fileName<<std::endl;
+        return false;
+    }
+    std::string str;
+    float fl;
+    // Read the next line from File untill it reaches the end.
+    while (std::getline(in, str))
+    {
+        // Line contains string of length > 0 then save it in vector
+        if(str.size() > 0)
+            fl = std::atof(str.c_str());
+            //fl = std::stof(str); //c++11
+            vecOfDMs.push_back(fl);
+    }
+    //Close The File
+    in.close();
+    return true;
+}
+
+
+
+
+
+
 int main(int argc, char **argv)
 {
   std::map<std::string,Stopwatch> timers;
@@ -303,8 +335,23 @@ int main(int argc, char **argv)
   
   if (args.verbose)
     std::cout << "Generating DM list" << std::endl;
-  dedisperser.generate_dm_list(args.dm_start,args.dm_end,args.dm_pulse_width,args.dm_tol);
-  std::vector<float> dm_list = dedisperser.get_dm_list();
+  std::vector<float> dm_list;
+  if (args.dm_file=="none")
+  {
+
+      dedisperser.generate_dm_list(args.dm_start,args.dm_end,args.dm_pulse_width,args.dm_tol);
+      //std::vector<float> dm_list = dedisperser.get_dm_list();
+      dm_list = dedisperser.get_dm_list();
+
+  }
+  else
+  { 
+      std::vector<float> vecOfDMs;
+      bool result = getFileContent(args.dm_file, vecOfDMs);
+      dm_list = vecOfDMs;
+      dedisperser.set_dm_list(dm_list);
+  } 
+       
   
   if (args.verbose){
     std::cout << dm_list.size() << " DM trials" << std::endl;
