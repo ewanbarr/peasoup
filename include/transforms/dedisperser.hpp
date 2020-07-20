@@ -95,7 +95,7 @@ public:
   }
   
   //DispersionTrials<unsigned char> dedisperse(void);
-  DispersionTrials<unsigned char> dedisperse(void)
+/*  DispersionTrials<unsigned char> dedisperse(void)
   {
     size_t max_delay = dedisp_get_max_delay(plan);
     unsigned int out_nsamps = filterbank.get_nsamps()-max_delay;
@@ -109,6 +109,24 @@ public:
     
     ErrorChecker::check_dedisp_error(error,"execute");
     DispersionTrials<unsigned char> ddata(data_ptr,out_nsamps,filterbank.get_tsamp(),dm_list);
+    return ddata;
+  }
+*/
+  //DispersionTrials<unsigned char> dedisperse(void);
+  DispersionTrials<unsigned int> dedisperse(void)
+  {
+    size_t max_delay = dedisp_get_max_delay(plan);
+    unsigned int out_nsamps = filterbank.get_nsamps()-max_delay;
+    size_t output_size = out_nsamps * dm_list.size();
+    unsigned int* data_ptr = new unsigned int [output_size];
+    dedisp_error error = dedisp_execute(plan,
+					filterbank.get_nsamps(),
+					filterbank.get_data(),
+					filterbank.get_nbits(),
+					(unsigned char*)data_ptr,32,(unsigned)0);
+    
+    ErrorChecker::check_dedisp_error(error,"execute");
+    DispersionTrials<unsigned int> ddata(data_ptr,out_nsamps,filterbank.get_tsamp(),dm_list);
     return ddata;
   }
 };

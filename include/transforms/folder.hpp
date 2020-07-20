@@ -337,7 +337,7 @@ public:
 class MultiFolder {
 private:
   std::vector<Candidate>& cands;
-  DispersionTrials<unsigned char>& dm_trials;
+  DispersionTrials<unsigned int>& dm_trials;
   TimeDomainResampler resampler;
   unsigned int nsamps;
   float tsamp;
@@ -351,7 +351,7 @@ private:
 
   void fold_all_mapped(void){
     std::map<unsigned int, std::vector<unsigned int> >::iterator iter;
-    ReusableDeviceTimeSeries<float,unsigned char> device_tim(nsamps);
+    ReusableDeviceTimeSeries<float,unsigned int> device_tim(nsamps);
     DeviceTimeSeries<float> d_tim_r(nsamps);
     Dereddener rednoise(nsamps/2+1);
     TimeDomainResampler resampler;
@@ -366,7 +366,7 @@ private:
     TimeSeriesFolder folder(nsamps);
     float period;
     int cand_idx;
-    TimeSeries<unsigned char> h_tim;
+    TimeSeries<unsigned int> h_tim;
     float mean,std,rms;
 
     if (use_progress_bar){
@@ -406,7 +406,7 @@ private:
   }
 
 public:
-  MultiFolder(std::vector<Candidate>& cands, DispersionTrials<unsigned char>& dm_trials)
+  MultiFolder(std::vector<Candidate>& cands, DispersionTrials<unsigned int>& dm_trials)
     :cands(cands),dm_trials(dm_trials),use_progress_bar(false){
     nsamps = Utils::prev_power_of_two(dm_trials.get_nsamps());
     tsamp = dm_trials.get_tsamp();
