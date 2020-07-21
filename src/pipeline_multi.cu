@@ -332,6 +332,18 @@ int main(int argc, char **argv)
   HarmonicDistiller harm_still(args.freq_tol,args.max_harm,true,false);
   CandidateCollection dm_cands;
 
+  unsigned int size;
+  if (args.size==0)
+    size = Utils::prev_power_of_two(filobj.get_nsamps());
+  else
+    //size = std::min(args.size,filobj.get_nsamps());
+    size = args.size;
+  if (args.verbose)
+    std::cout << "Setting transform length to " << size << " points" << std::endl;
+
+  AccelerationPlan acc_plan(args.acc_start, args.acc_end, args.acc_tol,
+            args.acc_pulse_width, size, filobj.get_tsamp(),
+            filobj.get_cfreq(), filobj.get_foff()); 
 
   if (args.killfilename!=""){
     if (args.verbose)
@@ -387,19 +399,6 @@ int main(int argc, char **argv)
 
     if (args.progress_bar)
       printf("Complete (execution time %.2f s)\n",timers["dedispersion"].getTime());
-
-    unsigned int size;
-    if (args.size==0)
-      size = Utils::prev_power_of_two(filobj.get_nsamps());
-    else
-      //size = std::min(args.size,filobj.get_nsamps());
-      size = args.size;
-    if (args.verbose)
-      std::cout << "Setting transform length to " << size << " points" << std::endl;
-
-    AccelerationPlan acc_plan(args.acc_start, args.acc_end, args.acc_tol,
-            args.acc_pulse_width, size, filobj.get_tsamp(),
-            filobj.get_cfreq(), filobj.get_foff()); 
       
     //Multithreading commands
     timers["searching"].start();
@@ -438,17 +437,17 @@ int main(int argc, char **argv)
   if (args.verbose)
     std::cout << "Setting up time series folder" << std::endl;
   
-  MultiFolder folder(dm_cands.cands,trials);
-  timers["folding"].start();
-  if (args.progress_bar)
-    folder.enable_progress_bar();
+  // MultiFolder folder(dm_cands.cands,trials);
+  // timers["folding"].start();
+  // if (args.progress_bar)
+  //   folder.enable_progress_bar();
 
-  if (args.npdmp > 0){
-    if (args.verbose)
-      std::cout << "Folding top "<< args.npdmp <<" cands" << std::endl;
-    folder.fold_n(args.npdmp);
-  }
-  timers["folding"].stop();
+  // if (args.npdmp > 0){
+  //   if (args.verbose)
+  //     std::cout << "Folding top "<< args.npdmp <<" cands" << std::endl;
+  //   folder.fold_n(args.npdmp);
+  // }
+  // timers["folding"].stop();
 
   if (args.verbose)
     std::cout << "Writing output files" << std::endl;
