@@ -331,9 +331,7 @@ int main(int argc, char **argv)
   DMDistiller dm_still(args.freq_tol,true);
   HarmonicDistiller harm_still(args.freq_tol,args.max_harm,true,false);
   CandidateCollection dm_cands;
-  AccelerationPlan acc_plan(args.acc_start, args.acc_end, args.acc_tol,
-            args.acc_pulse_width, size, filobj.get_tsamp(),
-            filobj.get_cfreq(), filobj.get_foff()); 
+
 
   if (args.killfilename!=""){
     if (args.verbose)
@@ -398,6 +396,10 @@ int main(int argc, char **argv)
       size = args.size;
     if (args.verbose)
       std::cout << "Setting transform length to " << size << " points" << std::endl;
+
+    AccelerationPlan acc_plan(args.acc_start, args.acc_end, args.acc_tol,
+            args.acc_pulse_width, size, filobj.get_tsamp(),
+            filobj.get_cfreq(), filobj.get_foff()); 
       
     //Multithreading commands
     timers["searching"].start();
