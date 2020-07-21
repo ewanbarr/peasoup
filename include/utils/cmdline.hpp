@@ -15,6 +15,7 @@ struct CmdLineOptions {
   float dm_tol;
   float dm_pulse_width;
   std::string dm_file; 
+  int ndm_trial_gulp;
   float acc_start;
   float acc_end;
   float acc_tol;
@@ -120,6 +121,10 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
                                                 "Minimum pulse width for which dm_tol is valid",
                                                 false, 64.0, "float (us)",cmd); 
 
+      TCLAP::ValueArg<float> arg_ndm_trial_gulp("", "ndm_trial_gulp",
+                                                "Number of DM trials to dedisperse at once (useful for RAM limitations), default: all",
+                                                false, -1, "int",cmd); 
+
       TCLAP::ValueArg<float> arg_acc_start("", "acc_start",
 					   "First acceleration to resample to",
 					   false, 0.0, "float", cmd);
@@ -189,6 +194,7 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
       args.dm_start            = arg_dm_start.getValue();
       args.dm_tol            = arg_dm_tol.getValue();
       args.dm_pulse_width    = arg_dm_pulse_width.getValue();
+      args.ndm_trial_gulp    = arg_ndm_trial_gulp.getValue();
       args.acc_start         = arg_acc_start.getValue();
       args.acc_end           = arg_acc_end.getValue();
       args.acc_tol           = arg_acc_tol.getValue();

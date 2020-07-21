@@ -210,35 +210,35 @@ public:
       PUSH_NVTX_RANGE("Acceleration-Loop",1)
 
       for (int jj=0;jj<acc_list.size();jj++){
-	    if (args.verbose)
-	      std::cout << "Resampling to "<< acc_list[jj] << " m/s/s" << std::endl;
-	    resampler.resampleII(d_tim,d_tim_r,size,acc_list[jj]);
+  	    if (args.verbose)
+  	      std::cout << "Resampling to "<< acc_list[jj] << " m/s/s" << std::endl;
+  	    resampler.resampleII(d_tim,d_tim_r,size,acc_list[jj]);
 
-	    if (args.verbose)
-	      std::cout << "Execute forward FFT" << std::endl;
-	    r2cfft.execute(d_tim_r.get_data(),d_fseries.get_data());
+  	    if (args.verbose)
+  	      std::cout << "Execute forward FFT" << std::endl;
+  	    r2cfft.execute(d_tim_r.get_data(),d_fseries.get_data());
 
-	    if (args.verbose)
-	      std::cout << "Form interpolated power spectrum" << std::endl;
-	    former.form_interpolated(d_fseries,pspec);
+  	    if (args.verbose)
+  	      std::cout << "Form interpolated power spectrum" << std::endl;
+  	    former.form_interpolated(d_fseries,pspec);
 
-	    if (args.verbose)
-	      std::cout << "Normalise power spectrum" << std::endl;
-	    stats::normalise(pspec.get_data(),mean*size,std*size,size/2+1);
+  	    if (args.verbose)
+  	      std::cout << "Normalise power spectrum" << std::endl;
+  	    stats::normalise(pspec.get_data(),mean*size,std*size,size/2+1);
 
-	    if (args.verbose)
-	      std::cout << "Harmonic summing" << std::endl;
-	    harm_folder.fold(pspec);
-		
-	    if (args.verbose)
-	      std::cout << "Finding peaks" << std::endl;
-	    SpectrumCandidates trial_cands(tim.get_dm(),ii,acc_list[jj]);
-	    cand_finder.find_candidates(pspec,trial_cands);
-	    cand_finder.find_candidates(sums,trial_cands);
-	
-	    if (args.verbose)
-	      std::cout << "Distilling harmonics" << std::endl;
-	      accel_trial_cands.append(harm_finder.distill(trial_cands.cands));
+  	    if (args.verbose)
+  	      std::cout << "Harmonic summing" << std::endl;
+  	    harm_folder.fold(pspec);
+  		
+  	    if (args.verbose)
+  	      std::cout << "Finding peaks" << std::endl;
+  	    SpectrumCandidates trial_cands(tim.get_dm(),ii,acc_list[jj]);
+  	    cand_finder.find_candidates(pspec,trial_cands);
+  	    cand_finder.find_candidates(sums,trial_cands);
+  	
+  	    if (args.verbose)
+  	      std::cout << "Distilling harmonics" << std::endl;
+  	      accel_trial_cands.append(harm_finder.distill(trial_cands.cands));
       }
 	  POP_NVTX_RANGE
       if (args.verbose)
@@ -326,7 +326,12 @@ int main(int argc, char **argv)
     printf("Complete (execution time %.2f s)\n",timers["reading"].getTime());
   }
 
+
   Dedisperser dedisperser(filobj,nthreads);
+  DMDistiller dm_still(args.freq_tol,true);
+  HarmonicDistiller harm_still(args.freq_tol,args.max_harm,true,false);
+  CandidateCollection dm_cands;
+
   if (args.killfilename!=""){
     if (args.verbose)
       std::cout << "Using killfile: " << args.killfilename << std::endl;
@@ -335,83 +340,91 @@ int main(int argc, char **argv)
   
   if (args.verbose)
     std::cout << "Generating DM list" << std::endl;
-  std::vector<float> dm_list;
-  if (args.dm_file=="none")
-  {
+  std::vector<float> full_dm_list;
 
-      dedisperser.generate_dm_list(args.dm_start,args.dm_end,args.dm_pulse_width,args.dm_tol);
-      //std::vector<float> dm_list = dedisperser.get_dm_list();
-      dm_list = dedisperser.get_dm_list();
+  if (args.dm_file=="none") {
+
+    dedisperser.generate_dm_list(args.dm_start,args.dm_end,args.dm_pulse_width,args.dm_tol);
+    full_dm_list = dedisperser.get_dm_list();
 
   }
-  else
-  { 
-      std::vector<float> vecOfDMs;
-      bool result = getFileContent(args.dm_file, vecOfDMs);
-      dm_list = vecOfDMs;
-      dedisperser.set_dm_list(dm_list);
-  } 
-       
-  
-  if (args.verbose){
+  else { 
+      bool result = getFileContent(args.dm_file, full_dm_list); 
+  }
+
+  int ndm_trial_gulp = args.ndm_trial_gulp != -1 ?  args.ndm_trial_gulp : full_dm_list.size();
+
+  for(int idx=0; idx< full_dm_list.size(); idx += ndm_trial_gulp){
+
+    int start = idx;
+    int end   = idx + ndm_trial_gulp; 
+    if(args.verbose)
+        std::cout << "Gulp start: " << start << " end: " << end << std::endl;
+
+    std::vector<float> dm_list_chunk(full_dm_list.begin() + start,  full_dm_list.begin() + end);
+    dedisperser.set_dm_list(dm_list_chunk);
+
+    if (args.verbose){
     std::cout << dm_list.size() << " DM trials" << std::endl;
     for (int ii=0;ii<dm_list.size();ii++)
       std::cout << dm_list[ii] << std::endl;
     std::cout << "Executing dedispersion" << std::endl;
+    }
+
+    if (args.progress_bar)
+      printf("Starting dedispersion...\n");
+
+    timers["dedispersion"].start();
+    PUSH_NVTX_RANGE("Dedisperse",3)
+    DispersionTrials<DedispOutputType> trials = dedisperser.dedisperse();
+    POP_NVTX_RANGE
+    timers["dedispersion"].stop();
+
+    //Write out a dedispersed time series file from the dedispersion tials
+    //  unsigned int* data_ptr = trials[0].get_data();
+    //  Utils::dump_host_buffer<unsigned int>(data_ptr,trials.get_nsamps(),"dedispersed_timeseries_new");
+
+    if (args.progress_bar)
+      printf("Complete (execution time %.2f s)\n",timers["dedispersion"].getTime());
+
+    unsigned int size;
+    if (args.size==0)
+      size = Utils::prev_power_of_two(filobj.get_nsamps());
+    else
+      //size = std::min(args.size,filobj.get_nsamps());
+      size = args.size;
+    if (args.verbose)
+      std::cout << "Setting transform length to " << size << " points" << std::endl;
+    
+    AccelerationPlan acc_plan(args.acc_start, args.acc_end, args.acc_tol,
+            args.acc_pulse_width, size, filobj.get_tsamp(),
+            filobj.get_cfreq(), filobj.get_foff()); 
+    
+    
+    //Multithreading commands
+    timers["searching"].start();
+    std::vector<Worker*> workers(nthreads);
+    std::vector<pthread_t> threads(nthreads);
+    DMDispenser dispenser(trials);
+    if (args.progress_bar)
+      dispenser.enable_progress_bar();
+    
+    for (int ii=0;ii<nthreads;ii++){
+      workers[ii] = (new Worker(trials,dispenser,acc_plan,args,size,ii));
+      pthread_create(&threads[ii], NULL, launch_worker_thread, (void*) workers[ii]);
+    }
+
+    if(args.verbose)
+      std:cout << "Joining worker threads" << std::endl;
+    
+    for (int ii=0; ii<nthreads; ii++){
+      pthread_join(threads[ii],NULL);
+      dm_cands.append(workers[ii]->dm_trial_cands.cands);
+    }
+    timers["searching"].stop();
+
+
   }
-
-  if (args.progress_bar)
-    printf("Starting dedispersion...\n");
-
-  timers["dedispersion"].start();
-  PUSH_NVTX_RANGE("Dedisperse",3)
-  DispersionTrials<DedispOutputType> trials = dedisperser.dedisperse();
-  POP_NVTX_RANGE
-  timers["dedispersion"].stop();
-
-
-//Write out a dedispersed time series file from the dedispersion tials
-//  unsigned int* data_ptr = trials[0].get_data();
-//  Utils::dump_host_buffer<unsigned int>(data_ptr,trials.get_nsamps(),"dedispersed_timeseries_new");
-
-  if (args.progress_bar)
-    printf("Complete (execution time %.2f s)\n",timers["dedispersion"].getTime());
-
-  unsigned int size;
-  if (args.size==0)
-    size = Utils::prev_power_of_two(filobj.get_nsamps());
-  else
-    //size = std::min(args.size,filobj.get_nsamps());
-    size = args.size;
-  if (args.verbose)
-    std::cout << "Setting transform length to " << size << " points" << std::endl;
-  
-  AccelerationPlan acc_plan(args.acc_start, args.acc_end, args.acc_tol,
-			    args.acc_pulse_width, size, filobj.get_tsamp(),
-			    filobj.get_cfreq(), filobj.get_foff()); 
-  
-  
-  //Multithreading commands
-  timers["searching"].start();
-  std::vector<Worker*> workers(nthreads);
-  std::vector<pthread_t> threads(nthreads);
-  DMDispenser dispenser(trials);
-  if (args.progress_bar)
-    dispenser.enable_progress_bar();
-  
-  for (int ii=0;ii<nthreads;ii++){
-    workers[ii] = (new Worker(trials,dispenser,acc_plan,args,size,ii));
-    pthread_create(&threads[ii], NULL, launch_worker_thread, (void*) workers[ii]);
-  }
-  
-  DMDistiller dm_still(args.freq_tol,true);
-  HarmonicDistiller harm_still(args.freq_tol,args.max_harm,true,false);
-  CandidateCollection dm_cands;
-  for (int ii=0; ii<nthreads; ii++){
-    pthread_join(threads[ii],NULL);
-    dm_cands.append(workers[ii]->dm_trial_cands.cands);
-  }
-  timers["searching"].stop();
   
   if (args.verbose)
     std::cout << "Distilling DMs" << std::endl;
