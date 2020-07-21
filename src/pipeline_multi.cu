@@ -374,6 +374,8 @@ int main(int argc, char **argv)
     if(args.verbose)
         std::cout << "Gulp start: " << start << " end: " << end << std::endl;
 
+    end > full_dm_list.size() ? full_dm_list.size() : end;
+
     std::vector<float> dm_list_chunk(full_dm_list.begin() + start,  full_dm_list.begin() + end);
     dedisperser.set_dm_list(dm_list_chunk);
 
