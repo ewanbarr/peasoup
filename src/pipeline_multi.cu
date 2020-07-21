@@ -365,9 +365,9 @@ int main(int argc, char **argv)
     dedisperser.set_dm_list(dm_list_chunk);
 
     if (args.verbose){
-    std::cout << dm_list.size() << " DM trials" << std::endl;
-    for (int ii=0;ii<dm_list.size();ii++)
-      std::cout << dm_list[ii] << std::endl;
+    std::cout << dm_list_chunk.size() << " DM trials" << std::endl;
+    for (int ii=0;ii<dm_list_chunk.size();ii++)
+      std::cout << dm_list_chunk[ii] << std::endl;
     std::cout << "Executing dedispersion" << std::endl;
     }
 
@@ -415,7 +415,7 @@ int main(int argc, char **argv)
     }
 
     if(args.verbose)
-      std:cout << "Joining worker threads" << std::endl;
+      std::cout << "Joining worker threads" << std::endl;
     
     for (int ii=0; ii<nthreads; ii++){
       pthread_join(threads[ii],NULL);
@@ -464,7 +464,7 @@ int main(int argc, char **argv)
   stats.add_misc_info();
   stats.add_header(filename);
   stats.add_search_parameters(args);
-  stats.add_dm_list(dm_list);
+  stats.add_dm_list(full_dm_list);
   
   std::vector<float> acc_list;
   acc_plan.generate_accel_list(0.0,acc_list);
