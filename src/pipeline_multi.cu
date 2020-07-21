@@ -372,7 +372,7 @@ int main(int argc, char **argv)
     int start = idx;
     int end   = idx + ndm_trial_gulp; 
 
-    end > full_dm_list.size() ? full_dm_list.size() : end;
+    end = end > full_dm_list.size() ? full_dm_list.size() : end;
 
     if(args.verbose)
     std::cout << "Gulp start: " << start << " end: " << end << std::endl;
