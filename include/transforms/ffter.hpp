@@ -80,8 +80,15 @@ public:
     :CuFFTer()
   {
     this->size = size;
-    cufftResult error = cufftPlan1d(&fft_plan, size, CUFFT_C2R, batch);
-    ErrorChecker::check_cufft_error(error);
+    //cufftResult error = cufftPlan1d(&fft_plan, size, CUFFT_C2R, batch);
+    long long n[] = {static_cast<long long>(size)};
+    size_t * workSize = NULL;
+    cufftResult error1 =  cufftCreate(&fft_plan);
+    ErrorChecker::check_cufft_error(error1);
+
+    cufftResult error2 = cufftMakePlanMany64(fft_plan, static_cast<long long>(1), n, NULL, static_cast<long long>(1), size, NULL, static_cast<long long>(1), size, CUFFT_C2R, static_cast<long long int>(batch), workSize);
+
+    ErrorChecker::check_cufft_error(error2);
   }
   
   void execute(cufftComplex* input, float* output)
