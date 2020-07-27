@@ -392,7 +392,8 @@ int main(int argc, char **argv)
 
     timers["dedispersion"].start();
     PUSH_NVTX_RANGE("Dedisperse",3)
-    DispersionTrials<DedispOutputType> trials = dedisperser.dedisperse();
+    DispersionTrials<DedispOutputType> trials(filobj.get_tsamp());
+    dedisperser.dedisperse(trials);
     POP_NVTX_RANGE
     timers["dedispersion"].stop();
 
