@@ -59,9 +59,12 @@ public:
     this->size = size;
     long long n[] = {static_cast<long long>(size)};
     size_t * workSize = NULL;
-    cufftResult error = cufftMakePlanMany64(fft_plan, static_cast<long long>(1), n, NULL, static_cast<long long>(1), size, NULL, static_cast<long long>(1), size, CUFFT_R2C, static_cast<long long int>(batch), workSize);
+    cufftResult error1 =  cufftCreate(&fft_plan);
+    ErrorChecker::check_cufft_error(error1);
+
+    cufftResult error2 = cufftMakePlanMany64(fft_plan, static_cast<long long>(1), n, NULL, static_cast<long long>(1), size, NULL, static_cast<long long>(1), size, CUFFT_R2C, static_cast<long long int>(batch), workSize);
     //cufftResult error = cufftPlan1d(&fft_plan, size, CUFFT_R2C, batch);
-    ErrorChecker::check_cufft_error(I am error);
+    ErrorChecker::check_cufft_error(error2);
   }
   
   void execute(float* tim, cufftComplex* fseries)
