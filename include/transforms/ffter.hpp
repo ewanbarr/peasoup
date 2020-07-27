@@ -11,6 +11,7 @@ protected:
   CuFFTer(void):fft_plan(0),size(0){}
   unsigned int get_size(void){return size;}
 
+
 public:
   double get_resolution(float tsamp){
     return (double) 1.0/(size * tsamp);
@@ -18,6 +19,13 @@ public:
   
   virtual unsigned int get_output_size(void){
     return size/2+1;
+  }
+
+  virtual ~CuFFTer(){
+    if(fft_plan !=0){
+      cudaThreadSynchronize();
+      cufftDestroy(fft_plan);
+    }
   }
 
 };
