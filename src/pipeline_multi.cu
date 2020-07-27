@@ -423,6 +423,7 @@ int main(int argc, char **argv)
     for (int ii=0; ii<nthreads; ii++){
       pthread_join(threads[ii],NULL);
       dm_cands.append(workers[ii]->dm_trial_cands.cands);
+      delete workers[ii];
     }
     timers["searching"].stop();
 
