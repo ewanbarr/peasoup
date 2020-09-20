@@ -33,8 +33,7 @@ public:
 
   virtual ~Dedisperser()
   {
-    dedisp_error error = dedisp_destroy_plan(plan);
-    ErrorChecker::check_dedisp_error(error,"destroy_plan");
+    dedisp_destroy_plan(plan);
   }
 
   void set_dm_list(float* dm_list_ptr, unsigned int ndms)
