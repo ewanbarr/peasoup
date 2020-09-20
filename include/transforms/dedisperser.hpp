@@ -31,6 +31,12 @@ public:
     ErrorChecker::check_dedisp_error(error,"create_plan_multi");
   }
 
+  virtual ~Dedisperser()
+  {
+    dedisp_destroy_plan(plan);
+    ErrorChecker::check_dedisp_error(error,"destroy_plan");
+  }
+
   void set_dm_list(float* dm_list_ptr, unsigned int ndms)
   {
     dm_list.resize(ndms);
