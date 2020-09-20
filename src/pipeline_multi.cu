@@ -344,7 +344,7 @@ int main(int argc, char **argv)
             filobj.get_cfreq(), filobj.get_foff()); 
 
 
-  Dedisperser dedisperser = new Dedisperser(filobj,nthreads);
+  Dedisperser* dedisperser = new Dedisperser(filobj,nthreads);
 
 
   if (args.killfilename!=""){
