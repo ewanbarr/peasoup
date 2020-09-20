@@ -33,7 +33,7 @@ public:
 
   virtual ~Dedisperser()
   {
-    dedisp_destroy_plan(plan);
+    dedisp_error error = dedisp_destroy_plan(plan);
     ErrorChecker::check_dedisp_error(error,"destroy_plan");
   }
 
