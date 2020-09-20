@@ -343,10 +343,14 @@ int main(int argc, char **argv)
             args.acc_pulse_width, size, filobj.get_tsamp(),
             filobj.get_cfreq(), filobj.get_foff()); 
 
+
+  Dedisperser dedisperser = new Dedisperser(filobj,nthreads);
+
+
   if (args.killfilename!=""){
     if (args.verbose)
       std::cout << "Using killfile: " << args.killfilename << std::endl;
-    dedisperser.set_killmask(args.killfilename);
+    dedisperser->set_killmask(args.killfilename);
   }
   
   if (args.verbose)
@@ -354,14 +358,15 @@ int main(int argc, char **argv)
   std::vector<float> full_dm_list;
 
   if (args.dm_file=="none") {
-    Dedisperser dedisperser(filobj,nthreads);
-    dedisperser.generate_dm_list(args.dm_start,args.dm_end,args.dm_pulse_width,args.dm_tol);
-    full_dm_list = dedisperser.get_dm_list();
+    dedisperser->generate_dm_list(args.dm_start,args.dm_end,args.dm_pulse_width,args.dm_tol);
+    full_dm_list = dedisperser->get_dm_list();
 
   }
   else { 
       bool result = getFileContent(args.dm_file, full_dm_list); 
   }
+
+  delete dedisperser;
 
   int ndm_trial_gulp = args.ndm_trial_gulp != -1 ?  args.ndm_trial_gulp : full_dm_list.size();
 
