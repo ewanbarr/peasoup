@@ -326,8 +326,6 @@ int main(int argc, char **argv)
     printf("Complete (execution time %.2f s)\n",timers["reading"].getTime());
   }
 
-
-  Dedisperser dedisperser(filobj,nthreads);
   DMDistiller dm_still(args.freq_tol,true);
   HarmonicDistiller harm_still(args.freq_tol,args.max_harm,true,false);
   CandidateCollection dm_cands;
@@ -356,7 +354,7 @@ int main(int argc, char **argv)
   std::vector<float> full_dm_list;
 
   if (args.dm_file=="none") {
-
+    Dedisperser dedisperser(filobj,nthreads);
     dedisperser.generate_dm_list(args.dm_start,args.dm_end,args.dm_pulse_width,args.dm_tol);
     full_dm_list = dedisperser.get_dm_list();
 
@@ -370,14 +368,13 @@ int main(int argc, char **argv)
   for(int idx=0; idx< full_dm_list.size(); idx += ndm_trial_gulp){
 
     int start = idx;
-    int end   = idx + ndm_trial_gulp; 
+    int end   = (idx + ndm_trial_gulp) > full_dm_list.size() ? full_dm_list.size(): (idx + ndm_trial_gulp) ; 
 
-    end = end > full_dm_list.size() ? full_dm_list.size() : end;
-
-    if(args.verbose)
-    std::cout << "Gulp start: " << start << " end: " << end << std::endl;
+    if(args.verbose) std::cout << "Gulp start: " << start << " end: " << end << std::endl;
 
     std::vector<float> dm_list_chunk(full_dm_list.begin() + start,  full_dm_list.begin() + end);
+
+    Dedisperser dedisperser(filobj,nthreads);
     dedisperser.set_dm_list(dm_list_chunk);
 
     if (args.verbose){
@@ -387,8 +384,7 @@ int main(int argc, char **argv)
     std::cout << "Executing dedispersion" << std::endl;
     }
 
-    if (args.progress_bar)
-      printf("Starting dedispersion...\n");
+    if (args.progress_bar) printf("Starting dedispersion...\n");
 
     timers["dedispersion"].start();
     PUSH_NVTX_RANGE("Dedisperse",3)
