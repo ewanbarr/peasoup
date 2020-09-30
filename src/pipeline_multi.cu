@@ -60,7 +60,7 @@ public:
     if (dm_idx==0)
       if (use_progress_bar){
 	printf("Releasing DMs to workers...\n");
-	progress->start();d
+	progress->start();
       }
     if (dm_idx >= trials.get_count()){
       retval =  -1;
