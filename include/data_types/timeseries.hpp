@@ -427,8 +427,8 @@ public:
   }
 
 
-  void resize(unsigned int out_nsamp, unsigned int count_in){
-    nsamps = out_nsamp;
+  void resize(unsigned int out_nsamps, unsigned int count_in){
+    nsamps = out_nsamps;
     count = count_in;
     data.resize(out_nsamp * count_in);
 
@@ -472,7 +472,7 @@ public:
   */
   DedispersedTimeSeries<T> operator[](int idx)
   {
-    T* ptr = this->get_data_ptr()+idx*(size_t)this->nsamps;
+    T* ptr = this->get_data_ptr() + idx*(size_t)this->nsamps;
     return DedispersedTimeSeries<T>(ptr, this->nsamps, this->tsamp, dm_list[idx]);
   }
   
@@ -485,15 +485,15 @@ public:
     overloaded [] operator.
   */
   void get_idx(unsigned int idx, DedispersedTimeSeries<T>& tim){
-    T* ptr = this->get_data_ptr()+(size_t)idx*(size_t)this->nsamps;
+    T* ptr = this->get_data_ptr() + (size_t)idx*(size_t)this->nsamps;
     tim.set_data(ptr);
     tim.set_dm(dm_list[idx]);
     tim.set_nsamps(this->nsamps);
     tim.set_tsamp(this->tsamp);
   }
-  void resize(unsigned int out_nsamp, std::vector<float> dm_list_in){
+  void resize(unsigned int out_nsamps, std::vector<float> dm_list_in){
     dm_list.swap(dm_list_in);
-    TimeSeriesContainer<T>::resize(out_nsamp, dm_list.size());
+    TimeSeriesContainer<T>::resize(out_nsamps, dm_list.size());
   }
 
 };
