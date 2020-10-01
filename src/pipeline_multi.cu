@@ -387,7 +387,7 @@ int main(int argc, char **argv)
     std::cout << "Executing dedispersion" << std::endl;
     }
 
-    if (args.progress_bar) printf("Starting dedispersion...\n");
+    if (args.progress_bar) std::cout <<"Starting dedispersion:" <<start << "to" << end << "..." << std::endl;
 
     timers["dedispersion"].start();
     PUSH_NVTX_RANGE("Dedisperse",3)
@@ -402,7 +402,9 @@ int main(int argc, char **argv)
 
     if (args.progress_bar)
       printf("Complete (execution time %.2f s)\n",timers["dedispersion"].getTime());
-      
+    
+    if (args.progress_bar) std::cout <<"Starting searching..."  << std::endl;
+
     //Multithreading commands
     timers["searching"].start();
     std::vector<Worker*> workers(nthreads);
@@ -425,6 +427,9 @@ int main(int argc, char **argv)
       delete workers[ii];
     }
     timers["searching"].stop();
+
+    if (args.progress_bar)
+      printf("Complete (execution time %.2f s)\n",timers["searching"].getTime());
 
 
   }
