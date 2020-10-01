@@ -430,7 +430,7 @@ public:
   void resize(unsigned int out_nsamps, unsigned int count_in){
     nsamps = out_nsamps;
     count = count_in;
-    data.resize(out_nsamp * count_in);
+    data.resize(out_nsamps * count_in);
 
   }
 
