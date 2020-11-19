@@ -77,9 +77,11 @@ public:
     fclose(fo);
   }
   
-  ~Coincidencer()
+  virtual ~Coincidencer()
   {
-    Utils::device_free(device_ptr_array);
+    if(device_ptr_array) {
+       Utils::device_free(device_ptr_array);
+    } 
   }
 
 };
