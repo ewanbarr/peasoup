@@ -76,7 +76,7 @@ public:
     return retval;
   }
   
-  ~DMDispenser(){
+  virtual ~DMDispenser(){
     if (use_progress_bar)
       delete progress;
     pthread_mutex_destroy(&mutex);
@@ -155,14 +155,26 @@ public:
       trials.get_idx(ii,tim);
       
       if (args.verbose)
-	std::cout << "Copying DM trial to device (DM: " << tim.get_dm() << ")"<< std::endl;
+	       std::cout << "Copying DM trial to device (DM: " << tim.get_dm() << ")"<< std::endl;
+
+      Utils::dump_host_buffer<unsigned int>(tim.get_data(), tim.get_nsamps(), "raw_timeseries_before_baseline_removal_host.dump");
 
       d_tim.copy_from_host(tim);
+
+      Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_before_baseline_removal.dump");
+
+      d_tim.remove_baseline(trials.get_nsamps());
+
+
+      Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_after_baseline_removal.dump");
+
       
       //timers["rednoise"].start()
       if (padding){
-	    padding_mean = stats::mean<float>(d_tim.get_data(),trials.get_nsamps());
-	    d_tim.fill(trials.get_nsamps(),d_tim.get_nsamps(),padding_mean);
+
+      d_tim.fill(trials.get_nsamps(),d_tim.get_nsamps(),0);
+
+	    //padding_mean = stats::mean<float>(d_tim.get_data(),trials.get_nsamps());
       }
 
       if (args.verbose)
@@ -172,13 +184,20 @@ public:
       if (args.verbose)
 	    std::cout << "Searching "<< acc_list.size()<< " acceleration trials for DM "<< tim.get_dm() << std::endl;
 
+      //Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_after_padding.dump");
+
+
       if (args.verbose)
 	    std::cout << "Executing forward FFT" << std::endl;
       r2cfft.execute(d_tim.get_data(),d_fseries.get_data());
 
+      //Utils::dump_device_buffer<cufftComplex>(d_fseries.get_data(), d_fseries.get_nbins(), "fourier_series.dump");
+
       if (args.verbose)
 	    std::cout << "Forming power spectrum" << std::endl;
       former.form(d_fseries,pspec);
+
+      //Utils::dump_device_buffer<float>(pspec.get_data(), pspec.get_nbins(), "power_spec.dump");
 
       if (args.verbose)
 	    std::cout << "Finding running median" << std::endl;
@@ -187,6 +206,9 @@ public:
       if (args.verbose)
 	    std::cout << "Dereddening Fourier series" << std::endl;
       rednoise.deredden(d_fseries);
+
+      //Utils::dump_device_buffer<cufftComplex>(d_fseries.get_data(), d_fseries.get_nbins(), "deredden_fourier_series.dump");
+
 
       if (args.zapfilename!=""){
 	    if (args.verbose)
@@ -206,6 +228,9 @@ public:
 	    std::cout << "Executing inverse FFT" << std::endl;
       c2rfft.execute(d_fseries.get_data(),d_tim.get_data());
 
+      //Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "deredden_ifft.dump");
+
+
       CandidateCollection accel_trial_cands;    
       PUSH_NVTX_RANGE("Acceleration-Loop",1)
 
@@ -214,17 +239,31 @@ public:
   	      std::cout << "Resampling to "<< acc_list[jj] << " m/s/s" << std::endl;
   	    resampler.resampleII(d_tim,d_tim_r,size,acc_list[jj]);
 
+        //Utils::dump_device_buffer<float>(d_tim_r.get_data(), d_tim_r.get_nsamps(), "resampler_out.dump");
+
+
   	    if (args.verbose)
   	      std::cout << "Execute forward FFT" << std::endl;
   	    r2cfft.execute(d_tim_r.get_data(),d_fseries.get_data());
+
+        //Utils::dump_device_buffer<cufftComplex>(d_fseries.get_data(), d_fseries.get_nbins(), "search_fourier_series.dump");
+
 
   	    if (args.verbose)
   	      std::cout << "Form interpolated power spectrum" << std::endl;
   	    former.form_interpolated(d_fseries,pspec);
 
+        //Utils::dump_device_buffer<float>(pspec.get_data(), pspec.get_nbins(), "search_power_spec.dump");
+
+
+
   	    if (args.verbose)
   	      std::cout << "Normalise power spectrum" << std::endl;
   	    stats::normalise(pspec.get_data(),mean*size,std*size,size/2+1);
+
+        //Utils::dump_device_buffer<float>(pspec.get_data(), pspec.get_nbins(), "search_normalised_power_spec.dump");
+
+
 
   	    if (args.verbose)
   	      std::cout << "Harmonic summing" << std::endl;
@@ -392,6 +431,7 @@ int main(int argc, char **argv)
     timers["dedispersion"].start();
     PUSH_NVTX_RANGE("Dedisperse",3)
     DispersionTrials<DedispOutputType> trials(filobj.get_tsamp());
+    std::cout <<"dedispersing...." <<std::endl;
     dedisperser.dedisperse(trials);
     POP_NVTX_RANGE
     timers["dedispersion"].stop();
@@ -489,6 +529,8 @@ int main(int argc, char **argv)
   std::stringstream xml_filepath;
   xml_filepath << args.outdir << "/" << "overview.xml";
   stats.to_file(xml_filepath.str());
+
+  std::cerr << "all done" << std::endl;
   
   return 0;
 }
