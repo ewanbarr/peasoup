@@ -471,7 +471,6 @@ void GPU_remove_baseline(T* d_collection, int nsamps){
     thrust::for_each(thrust::device_ptr<T>(d_collection), 
         thrust::device_ptr<T>(d_collection)+nsamps,thrust::placeholders::_1 -= mean);
 
-    std::cout << "mean: " << mean <<std::endl;
 
     if(count++ > 100) break;
 
