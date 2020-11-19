@@ -23,6 +23,7 @@
 #include <math.h>
 #include <thrust/system/cuda/vector.h>
 #include <thrust/system/cuda/execution_policy.h>
+#include <thrust/functional.h>
 #include <map>
 
 #define SQRT2 1.4142135623730951f
@@ -221,7 +222,13 @@ void power_series_kernel(cufftComplex *d_idata, float* d_odata,
   if(idx<size)
     {
       float z = x.x*x.x+x.y*x.y;
-      d_odata[idx] = z*rsqrtf(z);
+      if (z==0) {
+        printf("zero at %d\n", idx); 
+        d_odata[idx] = 0;
+      }
+      else{
+        d_odata[idx] = z*rsqrtf(z);
+      }
     }
   return;
 }
@@ -453,6 +460,33 @@ float GPU_mean(T* d_collection,int nsamps, int min_bin)
   return mean;
 }
 
+template<typename T>
+void GPU_remove_baseline(T* d_collection, int nsamps){
+  float mean  = 0.0;
+
+  int count = 0;
+  do{
+    mean = GPU_mean(d_collection, nsamps, 0);
+
+    thrust::for_each(thrust::device_ptr<T>(d_collection), 
+        thrust::device_ptr<T>(d_collection)+nsamps,thrust::placeholders::_1 -= mean);
+
+    std::cout << "mean: " << mean <<std::endl;
+
+    if(count++ > 100) break;
+
+  }while(abs(mean) > 5e-7 * nsamps);
+
+  thrust::for_each(thrust::device_ptr<T>(d_collection), 
+        thrust::device_ptr<T>(d_collection)+nsamps,thrust::placeholders::_1 -= mean);
+
+
+//  float mean = GPU_mean(d_collection, nsamps, 0);
+
+//  thrust::for_each(thrust::device_ptr<T>(d_collection),   thrust::device_ptr<T>(d_collection)+nsamps,thrust::placeholders::_1 -= mean);
+
+}
+
 
 template<typename T>
 void GPU_fill(T* start, T* end, T value){
@@ -465,6 +499,8 @@ void GPU_fill(T* start, T* end, T value){
 template void GPU_fill<float>(float*, float*, float);
 template float GPU_rms<float>(float*,int,int);
 template float GPU_mean<float>(float*,int,int);
+
+template void GPU_remove_baseline<float>(float*,int);
 
 __global__
 void normalisation_kernel(float*d_powers, float mean, float sigma, 
@@ -1147,7 +1183,7 @@ void conversion_kernel(X* x, Y* y, unsigned int size,
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
   if (idx<size)
-    y[idx] = x[idx];
+    y[idx] = static_cast<Y>(x[idx]);
   return;
 }
 
@@ -1169,5 +1205,9 @@ void device_conversion(X* x, Y* y, unsigned int size,
 template void device_conversion<char,float>(char*, float*, unsigned int, unsigned int, unsigned int);
 template void device_conversion<unsigned char,float>(unsigned char*, float*, unsigned int, unsigned int, unsigned int);
 template void device_conversion<unsigned int,float>(unsigned int*, float*, unsigned int, unsigned int, unsigned int);
+template void device_conversion<unsigned char, double>(unsigned char*, double*, unsigned int, unsigned int, unsigned int);
+
+
+
 
 
