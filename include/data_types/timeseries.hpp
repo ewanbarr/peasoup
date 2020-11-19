@@ -270,6 +270,13 @@ public:
     Utils::device_free(copy_buffer);
   }
 
+  void remove_baseline(unsigned int nsamps=0){
+
+    if(nsamps == 0) nsamps = this->nsamps;
+
+    GPU_remove_baseline<OnDeviceType>(this->data_ptr,nsamps);
+  }
+
   /*!
     \brief Fill a range of samples with a value.
     
