@@ -223,6 +223,12 @@ public:
     ErrorChecker::check_file_error(infile, filename);
     // Read the header
     read_header(infile,hdr);
+
+    //removing the last 1 second of data that could have different statistics
+    hdr.nsamples -= (unsigned int)(1 / hdr.tsamp);
+
+
+
     size_t input_size = (size_t) hdr.nsamples*hdr.nbits*hdr.nchans/8;
     this->data = new unsigned char [input_size];
     infile.seekg(hdr.size, std::ios::beg);
@@ -235,6 +241,13 @@ public:
     this->nbits = hdr.nbits;
     this->fch1 = hdr.fch1;
     this->foff  = hdr.foff;
+
+
+    //removing the last second of data
+
+
+
+
   }
   
   /*!
