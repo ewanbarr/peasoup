@@ -33,7 +33,9 @@ public:
 
   virtual ~Dedisperser()
   {
-    dedisp_destroy_plan(plan);
+    if( plan ) {
+      dedisp_destroy_plan(plan);
+    }
   }
 
   void set_dm_list(float* dm_list_ptr, unsigned int ndms)
@@ -138,6 +140,7 @@ public:
 					(unsigned char*)trials.get_data_ptr(),32,(unsigned)0);
     
     ErrorChecker::check_dedisp_error(error,"execute");
+
 
   }
 };
