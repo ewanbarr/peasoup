@@ -29,7 +29,7 @@ public:
     Utils::device_malloc(&median_125,size/5/5/5);
   }
   
-  ~Dereddener()
+  virtual ~Dereddener()
   {
     Utils::device_free(median);
     Utils::device_free(median_5);
