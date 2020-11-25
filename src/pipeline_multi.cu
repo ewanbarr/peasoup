@@ -31,7 +31,7 @@
 #include <cmath>
 #include <map>
 
-typedef unsigned int DedispOutputType; 
+typedef unsigned int DedispOutputType;
 
 class DMDispenser {
 private:
@@ -48,7 +48,7 @@ public:
     count = trials.get_count();
     pthread_mutex_init(&mutex, NULL);
   }
-  
+
   void enable_progress_bar(){
     progress = new ProgressBar();
     use_progress_bar = true;
@@ -75,7 +75,7 @@ public:
     pthread_mutex_unlock(&mutex);
     return retval;
   }
-  
+
   virtual ~DMDispenser(){
     if (use_progress_bar)
       delete progress;
@@ -92,14 +92,14 @@ private:
   unsigned int size;
   int device;
   std::map<std::string,Stopwatch> timers;
-  
+
 public:
   CandidateCollection dm_trial_cands;
 
-  Worker(DispersionTrials<DedispOutputType>& trials, DMDispenser& manager, 
+  Worker(DispersionTrials<DedispOutputType>& trials, DMDispenser& manager,
 	 AccelerationPlan& acc_plan, CmdLineOptions& args, unsigned int size, int device)
     :trials(trials),manager(manager),acc_plan(acc_plan),args(args),size(size),device(device){}
-  
+
   void start(void)
   {
     //Generate some timer instances for benchmarking
@@ -115,7 +115,7 @@ public:
     bool padding = false;
     if (size > trials.get_nsamps())
       padding = true;
-    
+
     CuFFTerR2C r2cfft(size);
     CuFFTerC2R c2rfft(size);
     float tobs = size*trials.get_tsamp();
@@ -153,7 +153,7 @@ public:
       if (ii==-1)
         break;
       trials.get_idx(ii,tim);
-      
+
       if (args.verbose)
 	       std::cout << "Copying DM trial to device (DM: " << tim.get_dm() << ")"<< std::endl;
 
@@ -168,7 +168,7 @@ public:
 
       Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_after_baseline_removal.dump");
 
-      
+
       //timers["rednoise"].start()
       if (padding){
 
@@ -180,7 +180,7 @@ public:
       if (args.verbose)
 	    std::cout << "Generating accelration list" << std::endl;
       acc_plan.generate_accel_list(tim.get_dm(),acc_list);
-      
+
       if (args.verbose)
 	    std::cout << "Searching "<< acc_list.size()<< " acceleration trials for DM "<< tim.get_dm() << std::endl;
 
@@ -231,7 +231,7 @@ public:
       //Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "deredden_ifft.dump");
 
 
-      CandidateCollection accel_trial_cands;    
+      CandidateCollection accel_trial_cands;
       PUSH_NVTX_RANGE("Acceleration-Loop",1)
 
       for (int jj=0;jj<acc_list.size();jj++){
@@ -268,13 +268,13 @@ public:
   	    if (args.verbose)
   	      std::cout << "Harmonic summing" << std::endl;
   	    harm_folder.fold(pspec);
-  		
+
   	    if (args.verbose)
   	      std::cout << "Finding peaks" << std::endl;
   	    SpectrumCandidates trial_cands(tim.get_dm(),ii,acc_list[jj]);
   	    cand_finder.find_candidates(pspec,trial_cands);
   	    cand_finder.find_candidates(sums,trial_cands);
-  	
+
   	    if (args.verbose)
   	      std::cout << "Distilling harmonics" << std::endl;
   	      accel_trial_cands.append(harm_finder.distill(trial_cands.cands));
@@ -285,14 +285,14 @@ public:
       dm_trial_cands.append(acc_still.distill(accel_trial_cands.cands));
     }
 	POP_NVTX_RANGE
-	
+
     if (args.zapfilename!="")
       delete bzap;
-    
+
     if (args.verbose)
       std::cout << "DM processing took " << pass_timer.getTime() << " seconds"<< std::endl;
   }
-  
+
 };
 
 void* launch_worker_thread(void* ptr){
@@ -356,11 +356,11 @@ int main(int argc, char **argv)
   //Stopwatch timer;
   if (args.progress_bar)
     printf("Reading data from %s\n",args.infilename.c_str());
-  
+
   timers["reading"].start();
   SigprocFilterbank filobj(filename);
   timers["reading"].stop();
-    
+
   if (args.progress_bar){
     printf("Complete (execution time %.2f s)\n",timers["reading"].getTime());
   }
@@ -380,9 +380,9 @@ int main(int argc, char **argv)
 
   AccelerationPlan acc_plan(args.acc_start, args.acc_end, args.acc_tol,
             args.acc_pulse_width, size, filobj.get_tsamp(),
-            filobj.get_cfreq(), filobj.get_foff()); 
+            filobj.get_cfreq(), filobj.get_foff());
 
-  
+
   if (args.verbose)
     std::cout << "Generating DM list" << std::endl;
   std::vector<float> full_dm_list;
@@ -393,8 +393,8 @@ int main(int argc, char **argv)
     full_dm_list = dedisperser.get_dm_list();
 
   }
-  else { 
-      bool result = getFileContent(args.dm_file, full_dm_list); 
+  else {
+      bool result = getFileContent(args.dm_file, full_dm_list);
   }
 
   int ndm_trial_gulp = args.ndm_trial_gulp != -1 ?  args.ndm_trial_gulp : full_dm_list.size();
@@ -402,7 +402,7 @@ int main(int argc, char **argv)
   for(int idx=0; idx< full_dm_list.size(); idx += ndm_trial_gulp){
 
     int start = idx;
-    int end   = (idx + ndm_trial_gulp) > full_dm_list.size() ? full_dm_list.size(): (idx + ndm_trial_gulp) ; 
+    int end   = (idx + ndm_trial_gulp) > full_dm_list.size() ? full_dm_list.size(): (idx + ndm_trial_gulp) ;
 
     if(args.verbose) std::cout << "Gulp start: " << start << " end: " << end << std::endl;
 
@@ -432,7 +432,15 @@ int main(int argc, char **argv)
     PUSH_NVTX_RANGE("Dedisperse",3)
     DispersionTrials<DedispOutputType> trials(filobj.get_tsamp());
     std::cout <<"dedispersing...." <<std::endl;
-    dedisperser.dedisperse(trials);
+
+    std::size_t gulp_size;
+    if (args.dedisp_gulp == -1){
+      gulp_size = filobj.get_nsamps();
+    } else {
+      gulp_size = args.dedisp_gulp;
+    }
+
+    dedisperser.dedisperse(trials, 0, filobj.get_nsamps(), gulp_size);
     POP_NVTX_RANGE
     timers["dedispersion"].stop();
 
@@ -442,7 +450,7 @@ int main(int argc, char **argv)
 
     if (args.progress_bar)
       printf("Complete (execution time %.2f s)\n",timers["dedispersion"].getTime());
-    
+
     if (args.progress_bar) std::cout <<"Starting searching..."  << std::endl;
 
     //Multithreading commands
@@ -452,7 +460,7 @@ int main(int argc, char **argv)
     DMDispenser dispenser(trials);
     if (args.progress_bar)
       dispenser.enable_progress_bar();
-    
+
     for (int ii=0;ii<nthreads;ii++){
       workers[ii] = (new Worker(trials,dispenser,acc_plan,args,size,ii));
       pthread_create(&threads[ii], NULL, launch_worker_thread, (void*) workers[ii]);
@@ -460,7 +468,7 @@ int main(int argc, char **argv)
 
     if(args.verbose)
       std::cout << "Joining worker threads" << std::endl;
-    
+
     for (int ii=0; ii<nthreads; ii++){
       pthread_join(threads[ii],NULL);
       dm_cands.append(workers[ii]->dm_trial_cands.cands);
@@ -473,19 +481,19 @@ int main(int argc, char **argv)
 
 
   }
-  
+
   if (args.verbose)
     std::cout << "Distilling DMs" << std::endl;
   dm_cands.cands = dm_still.distill(dm_cands.cands);
   dm_cands.cands = harm_still.distill(dm_cands.cands);
-  
+
   CandidateScorer cand_scorer(filobj.get_tsamp(),filobj.get_cfreq(), filobj.get_foff(),
 			      fabs(filobj.get_foff())*filobj.get_nchans());
   cand_scorer.score_all(dm_cands.cands);
 
   if (args.verbose)
     std::cout << "Setting up time series folder" << std::endl;
-  
+
   // MultiFolder folder(dm_cands.cands,trials);
   // timers["folding"].start();
   // if (args.progress_bar)
@@ -501,23 +509,23 @@ int main(int argc, char **argv)
   if (args.verbose)
     std::cout << "Writing output files" << std::endl;
   //dm_cands.write_candidate_file("./old_cands.txt");
-  
+
   int new_size = std::min(args.limit,(int) dm_cands.cands.size());
   dm_cands.cands.resize(new_size);
 
   CandidateFileWriter cand_files(args.outdir);
   cand_files.write_binary(dm_cands.cands,"candidates.peasoup");
-  
+
   OutputFileWriter stats;
   stats.add_misc_info();
   stats.add_header(filename);
   stats.add_search_parameters(args);
   stats.add_dm_list(full_dm_list);
-  
+
   std::vector<float> acc_list;
   acc_plan.generate_accel_list(0.0,acc_list);
   stats.add_acc_list(acc_list);
-  
+
   std::vector<int> device_idxs;
   for (int device_idx=0;device_idx<nthreads;device_idx++)
     device_idxs.push_back(device_idx);
@@ -525,12 +533,12 @@ int main(int argc, char **argv)
   stats.add_candidates(dm_cands.cands,cand_files.byte_mapping);
   timers["total"].stop();
   stats.add_timing_info(timers);
-  
+
   std::stringstream xml_filepath;
   xml_filepath << args.outdir << "/" << "overview.xml";
   stats.to_file(xml_filepath.str());
 
   std::cerr << "all done" << std::endl;
-  
+
   return 0;
 }

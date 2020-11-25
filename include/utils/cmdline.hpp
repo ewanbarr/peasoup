@@ -14,8 +14,9 @@ struct CmdLineOptions {
   float dm_end;
   float dm_tol;
   float dm_pulse_width;
-  std::string dm_file; 
+  std::string dm_file;
   int ndm_trial_gulp;
+  int dedisp_gulp;
   float acc_start;
   float acc_end;
   float acc_tol;
@@ -81,7 +82,7 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
       TCLAP::ValueArg<std::string> arg_outdir("o", "outdir",
 					      "The output directory",
 					      false, get_utc_str(), "string",cmd);
-      
+
       TCLAP::ValueArg<std::string> arg_killfilename("k", "killfile",
 						    "Channel mask file",
 						    false, "", "string",cmd);
@@ -119,11 +120,15 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
 
       TCLAP::ValueArg<float> arg_dm_pulse_width("", "dm_pulse_width",
                                                 "Minimum pulse width for which dm_tol is valid",
-                                                false, 64.0, "float (us)",cmd); 
+                                                false, 64.0, "float (us)",cmd);
 
-      TCLAP::ValueArg<float> arg_ndm_trial_gulp("", "ndm_trial_gulp",
+      TCLAP::ValueArg<int> arg_ndm_trial_gulp("", "ndm_trial_gulp",
                                                 "Number of DM trials to dedisperse at once (useful for RAM limitations), default: all",
-                                                false, -1, "int",cmd); 
+                                                false, -1, "int", cmd);
+
+      TCLAP::ValueArg<int> arg_dedisp_gulp("", "dedisp_gulp",
+                                                "Number of samples to read at a time during dedispersion, default: all",
+                                                false, -1, "int", cmd);
 
       TCLAP::ValueArg<float> arg_acc_start("", "acc_start",
 					   "First acceleration to resample to",
@@ -195,6 +200,7 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
       args.dm_tol            = arg_dm_tol.getValue();
       args.dm_pulse_width    = arg_dm_pulse_width.getValue();
       args.ndm_trial_gulp    = arg_ndm_trial_gulp.getValue();
+      args.dedisp_gulp       = arg_dedisp_gulp.getValue();
       args.acc_start         = arg_acc_start.getValue();
       args.acc_end           = arg_acc_end.getValue();
       args.acc_tol           = arg_acc_tol.getValue();
@@ -231,9 +237,9 @@ bool read_ffa_cmdline_options(FFACmdLineOptions& args, int argc, char **argv)
 
       TCLAP::ValueArg<std::string> arg_outfilename("o", "outfilename",
 						   "The output filename",
-						   false, get_default_ffa_output_filename(), 
+						   false, get_default_ffa_output_filename(),
 						   "string",cmd);
-      
+
       TCLAP::ValueArg<std::string> arg_killfilename("k", "killfile",
                                                     "Channel mask file",
                                                     false, "", "string",cmd);
@@ -265,11 +271,11 @@ bool read_ffa_cmdline_options(FFACmdLineOptions& args, int argc, char **argv)
       TCLAP::ValueArg<float> arg_p_start("", "p_start",
 					 "Start period for FFA search",
 					 false, 0.8, "float (s)",cmd);
-      
+
       TCLAP::ValueArg<float> arg_p_end("", "p_end",
 				       "End period for FFA search",
 				       false, 20.0, "float (s)",cmd);
-      
+
       TCLAP::ValueArg<float> arg_min_dc("", "min_dc",
 					"Minimum duty cycle",
 					false, 0.001, "float (fraction)",cmd);
