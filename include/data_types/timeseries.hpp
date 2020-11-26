@@ -427,7 +427,7 @@ public:
     
     \return Pointer to timeseries data.
   */
-  std::vector<T> get_data(void){return data;}
+  std::vector<T> const& get_data(void){return data;}
 
   unsigned int* get_data_ptr(){
     return data.data();
