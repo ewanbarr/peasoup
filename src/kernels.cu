@@ -223,7 +223,7 @@ void power_series_kernel(cufftComplex *d_idata, float* d_odata,
     {
       float z = x.x*x.x+x.y*x.y;
       if (z==0) {
-        printf("zero at %d\n", idx); 
+        //printf("zero at %d\n", idx); 
         d_odata[idx] = 0;
       }
       else{
