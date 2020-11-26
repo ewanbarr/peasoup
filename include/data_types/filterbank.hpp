@@ -254,7 +254,9 @@ public:
     std::size_t size = static_cast<std::size_t>(nsamples * _header.nbits * _header.nchans / 8);
     _data.resize(size);
     std::size_t byte_offset = start_sample * _header.nbits * _header.nchans / 8;
+    _filestream.clear();
     _filestream.seekg(_header.size + byte_offset, std::ios::beg);
+    //std::cout << "Filestream pointer at " << _filestream.tellg() << std::endl;
     _filestream.read(reinterpret_cast<char*>(_data.data()), size);
     std::size_t bytes_read = _filestream.gcount();
     _data.resize(bytes_read);
