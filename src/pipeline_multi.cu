@@ -408,7 +408,8 @@ int main(int argc, char **argv)
 
     std::vector<float> dm_list_chunk(full_dm_list.begin() + start,  full_dm_list.begin() + end);
 
-    Dedisperser dedisperser(filobj,nthreads);
+    Dedisperser* dedisperser_ptr = new Dedisperser(filobj,nthreads);
+    Dedisperser& dedisperser = *dedisperser_ptr; 
 
     if (args.killfilename!=""){
       if (args.verbose)
@@ -475,7 +476,13 @@ int main(int argc, char **argv)
       delete workers[ii];
     }
     timers["searching"].stop();
-
+    delete dedisperser_ptr;
+    for (int ii=0; ii < nthreads; ++ii)
+    {
+        cudaSetDevice(ii);
+        ErrorChecker::check_cuda_error("error on cudaSetDevice");
+        cudaDeviceReset();
+    }
     if (args.progress_bar)
       printf("Complete (execution time %.2f s)\n",timers["searching"].getTime());
 
