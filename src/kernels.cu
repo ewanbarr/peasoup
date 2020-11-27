@@ -34,18 +34,18 @@
 __global__
 void harmonic_sum_kernel(float *d_idata, float **d_odata,
 			 size_t size, unsigned nharms)
-  
+
 {
   for( int idx = blockIdx.x*blockDim.x + threadIdx.x ; idx < size ; idx += blockDim.x*gridDim.x )
     {
       float val = d_idata[idx];
-      
+
       if (nharms>0)
 	{
       	  val += d_idata[(int) (idx*0.5 + 0.5)];
 	  d_odata[0][idx] = val*rsqrt(2.0);
 	}
-      
+
       if (nharms>1)
 	{
 	  val += d_idata[(int) (idx * 0.75 + 0.5)];
@@ -74,7 +74,7 @@ void harmonic_sum_kernel(float *d_idata, float **d_odata,
 	  val += d_idata[(int) (idx * 0.9375 + 0.5)];
 	  d_odata[3][idx] = val*0.25;
 	}
-      
+
       if (nharms>4)
 	{
 	  val += d_idata[(int) (idx * 0.03125 + 0.5)];
@@ -105,9 +105,9 @@ void harmonic_sum_kernel_wshared(float *d_idata, float **d_odata,
                          size_t size, unsigned nharms)
 
 {
-  
+
   __shared__ float buffer [sizeof(float)*512];
-    
+
 
   for( int idx = blockIdx.x*blockDim.x + threadIdx.x ; idx < size ; idx += blockDim.x*gridDim.x )
     {
@@ -118,14 +118,14 @@ void harmonic_sum_kernel_wshared(float *d_idata, float **d_odata,
 
       if (nharms>0)
         {
-	  
+
 	  thread_by_fold = threadIdx.x/2;
 	  if (threadIdx.x % 2 == 0)
 	    {
 	      buffer[thread_by_fold] = d_idata[(int) (idx*0.5)];
 	    }
 	  //__syncthreads();
-	  
+
 	  val += buffer[thread_by_fold];
           d_odata[0][idx] = val*rsqrt(2.0);
         }
@@ -181,7 +181,7 @@ void harmonic_sum_kernel_wshared(float *d_idata, float **d_odata,
 	      buffer[thread_by_fold+ 7*blockdim_by_fold] = d_idata[(int) (idx*0.9375)];
             }
           //__syncthreads();
-	  
+
 	  val += buffer[thread_by_fold];
 	  val += buffer[thread_by_fold+ blockdim_by_fold];
 	  val += buffer[thread_by_fold+ 2*blockdim_by_fold];
@@ -190,7 +190,7 @@ void harmonic_sum_kernel_wshared(float *d_idata, float **d_odata,
 	  val += buffer[thread_by_fold+ 5*blockdim_by_fold];
 	  val += buffer[thread_by_fold+ 6*blockdim_by_fold];
 	  val += buffer[thread_by_fold+ 7*blockdim_by_fold];
-	  
+
           d_odata[3][idx] = val*0.25;
         }
     }
@@ -198,7 +198,7 @@ void harmonic_sum_kernel_wshared(float *d_idata, float **d_odata,
   }*/
 
 void device_harmonic_sum(float* d_input_array, float** d_output_array,
-			 size_t size, unsigned nharms, 
+			 size_t size, unsigned nharms,
 			 unsigned int max_blocks, unsigned int max_threads)
 {
   unsigned blocks = size/max_threads + 1;
@@ -213,8 +213,8 @@ void device_harmonic_sum(float* d_input_array, float** d_output_array,
 
 //Could be optimised with shared memory
 
-__global__ 
-void power_series_kernel(cufftComplex *d_idata, float* d_odata, 
+__global__
+void power_series_kernel(cufftComplex *d_idata, float* d_odata,
 			 size_t size, size_t gulp_index)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_index;
@@ -223,7 +223,7 @@ void power_series_kernel(cufftComplex *d_idata, float* d_odata,
     {
       float z = x.x*x.x+x.y*x.y;
       if (z==0) {
-        //printf("zero at %d\n", idx); 
+        //printf("zero at %d\n", idx);
         d_odata[idx] = 0;
       }
       else{
@@ -235,7 +235,7 @@ void power_series_kernel(cufftComplex *d_idata, float* d_odata,
 
 //Could be optimised with shared memory
 
-__global__ void bin_interbin_series_kernel(cufftComplex *d_idata,float* d_odata, 
+__global__ void bin_interbin_series_kernel(cufftComplex *d_idata,float* d_odata,
 					   size_t size, size_t gulp_index)
 {
   float* d_idata_float = (float*)d_idata;
@@ -262,20 +262,20 @@ __global__ void bin_interbin_series_kernel(cufftComplex *d_idata,float* d_odata,
 __global__ void bin_interbin_series_kernel(cufftComplex *d_idata,float* d_odata, int size)
 {
   int idx = blockIdx.x * (blockDim.x-1) + threadIdx.x;
-  
+
   if (idx>=size-1)
     return;
-    
+
   extern __shared__ cufftComplex s[];
 
   //blockIdx accounts for backshift by 1 sample to keep single write coalesence
-  
+
   if (idx!=0)
     s[threadIdx.x] = d_idata[idx-1];
   else
     s[threadIdx.x] = make_cuComplex(0.0,0.0);
   __syncthreads();
-  
+
   if (threadIdx.x+1 == blockDim.x)
     return;
 
@@ -286,12 +286,12 @@ __global__ void bin_interbin_series_kernel(cufftComplex *d_idata,float* d_odata,
 			  (x.y-y.y)*(x.y-y.y));
   float val = max(ampsq,ampsq_diff);
   d_odata[idx] = val*rsqrtf(val);
-  
+
   return;
 }
  */
 
-void device_form_power_series(cufftComplex* d_array_in, 
+void device_form_power_series(cufftComplex* d_array_in,
 			      float* d_array_out,
 			      size_t size, int way,
 			      unsigned int max_blocks,
@@ -299,7 +299,7 @@ void device_form_power_series(cufftComplex* d_array_in,
 {
   BlockCalculator calc(size,max_blocks,max_threads);
   for (int ii=0;ii<calc.size();ii++){
-    if (way == 1)  
+    if (way == 1)
       bin_interbin_series_kernel<<<calc[ii].blocks,max_threads>>>
         (d_array_in, d_array_out, size, calc[ii].data_idx);
     else
@@ -343,7 +343,7 @@ __global__ void resample_kernelII(float* input_d,
 				  float* output_d,
 				  double accel_fact,
 				  double size)
-				  
+
 {
   for( unsigned long idx = blockIdx.x*blockDim.x + threadIdx.x ; idx < size ; idx += blockDim.x*gridDim.x )
   {
@@ -357,7 +357,7 @@ void device_resampleII(float * d_idata, float * d_odata,
                      float tsamp, unsigned int max_threads,
                      unsigned int max_blocks)
 {
-  
+
   double accel_fact = ((a*tsamp) / (2 * 299792458.0));
   unsigned blocks = size/max_threads + 1;
   if (blocks > max_blocks)
@@ -369,7 +369,7 @@ void device_resampleII(float * d_idata, float * d_odata,
 }
 
 void device_resample(float * d_idata, float * d_odata,
-		     size_t size, float a, 
+		     size_t size, float a,
 		     float tsamp, unsigned int max_threads,
 		     unsigned int max_blocks)
 {
@@ -377,7 +377,7 @@ void device_resample(float * d_idata, float * d_odata,
   double size_by_2  = (double)size/2.0;
   BlockCalculator calc(size,max_blocks,max_threads);
   for (int ii=0;ii<calc.size();ii++)
-    resample_kernel<<< calc[ii].blocks,max_threads >>>(d_idata, d_odata, 
+    resample_kernel<<< calc[ii].blocks,max_threads >>>(d_idata, d_odata,
 						       accel_fact,
 						       size,
 						       size_by_2,
@@ -397,22 +397,22 @@ struct greater_than_threshold : thrust::unary_function<thrust::tuple<int,float>,
 
 int device_find_peaks(int n, int start_index, float * d_dat,
 		      float thresh, int * indexes, float * snrs,
-		      thrust::device_vector<int>& d_index, 
+		      thrust::device_vector<int>& d_index,
 		      thrust::device_vector<float>& d_snrs,
 		      cached_allocator& policy)
 {
-  
+
   using thrust::tuple;
   using thrust::counting_iterator;
   using thrust::zip_iterator;
-  // Wrap the device pointer to let Thrust know                              
+  // Wrap the device pointer to let Thrust know
   thrust::device_ptr<float> dptr_dat(d_dat + start_index);
   typedef thrust::device_vector<float>::iterator snr_iterator;
   typedef thrust::device_vector<int>::iterator indices_iterator;
   thrust::counting_iterator<int> iter(start_index);
   zip_iterator<tuple<counting_iterator<int>,thrust::device_ptr<float> > > zipped_iter = make_zip_iterator(make_tuple(iter,dptr_dat));
   zip_iterator<tuple<indices_iterator,snr_iterator> > zipped_out_iter = make_zip_iterator(make_tuple(d_index.begin(),d_snrs.begin()));
-  
+
   //apply execution policy to get some speed up
   int num_copied = thrust::copy_if(thrust::cuda::par(policy), zipped_iter, zipped_iter+n-start_index,
 				   zipped_out_iter,greater_than_threshold(thresh)) - zipped_out_iter;
@@ -468,7 +468,7 @@ void GPU_remove_baseline(T* d_collection, int nsamps){
   do{
     mean = GPU_mean(d_collection, nsamps, 0);
 
-    thrust::for_each(thrust::device_ptr<T>(d_collection), 
+    thrust::for_each(thrust::device_ptr<T>(d_collection),
         thrust::device_ptr<T>(d_collection)+nsamps,thrust::placeholders::_1 -= mean);
 
 
@@ -476,7 +476,7 @@ void GPU_remove_baseline(T* d_collection, int nsamps){
 
   }while(abs(mean) > 5e-7 * nsamps);
 
-  thrust::for_each(thrust::device_ptr<T>(d_collection), 
+  thrust::for_each(thrust::device_ptr<T>(d_collection),
         thrust::device_ptr<T>(d_collection)+nsamps,thrust::placeholders::_1 -= mean);
 
 
@@ -502,7 +502,7 @@ template float GPU_mean<float>(float*,int,int);
 template void GPU_remove_baseline<float>(float*,int);
 
 __global__
-void normalisation_kernel(float*d_powers, float mean, float sigma, 
+void normalisation_kernel(float*d_powers, float mean, float sigma,
 			  size_t size, size_t gulp_idx)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
@@ -540,14 +540,14 @@ void device_normalise_spectrum(int nsamp,
   float mean;
   float rms;
   float meansquares;
-  
+
   if (*sigma==0.0) {
     mean = GPU_mean(d_power_spectrum,nsamp,min_bin);
     rms = GPU_rms(d_power_spectrum,nsamp,min_bin);
     meansquares = rms*rms;
     *sigma = sqrt(meansquares - (mean*mean));
   }
-  
+
   thrust::transform(thrust::device_ptr<float>(d_power_spectrum),
                     thrust::device_ptr<float>(d_power_spectrum)+nsamp,
                     thrust::make_constant_iterator(*sigma),
@@ -562,12 +562,12 @@ void device_normalise_spectrum(int nsamp,
 __global__
 void fold_filterbank_kernel(float* input, float* output, unsigned* count,
 			    unsigned nchans, float tsamp_by_period,
-			    double accel_fact, unsigned nbins, 
+			    double accel_fact, unsigned nbins,
 			    float nrots_per_subint, unsigned nsamps,
 			    unsigned offset)
 {
   extern __shared__ peasoup_fold_plan plan [];
-  
+
   unsigned first_samp;
   unsigned samp;
   float rotation;
@@ -575,8 +575,8 @@ void fold_filterbank_kernel(float* input, float* output, unsigned* count,
   float frac_part;
   unsigned in_idx_partial,in_idx;
   unsigned out_idx_partial,out_idx;
-  
-  //Start in time domain and calculate output 
+
+  //Start in time domain and calculate output
   //phasebin an subint for each sample in the block
 
   first_samp = blockIdx.x*blockDim.x + offset;
@@ -585,16 +585,16 @@ void fold_filterbank_kernel(float* input, float* output, unsigned* count,
   frac_part = modf(rotation,&int_part);
   plan[threadIdx.x].subint = __float2uint_rd(rotation/nrots_per_subint);
   plan[threadIdx.x].phasebin = __float2uint_rd(frac_part*nbins);
-  
+
   //Sync and move to channel domain to preserve
   //memory bandwidth
-  
+
   __sync_threads();
-  
+
   for (jj=0; jj<blockDim.x; jj++)
     {
       in_idx_partial = (jj+first_samp)*nchans;
- 
+
       //These are shared memory broadcasts
       out_idx_partial = nbins*nchans*plan[jj].subint + nchan*plan[jj].bin;
 
@@ -609,13 +609,13 @@ void fold_filterbank_kernel(float* input, float* output, unsigned* count,
 }
 
 
-int device_fold_filterbank(float* input, float* output, unsigned* count, 
+int device_fold_filterbank(float* input, float* output, unsigned* count,
 			   float tsamp, float period, float acceleration,
 			   unsigned nsubints, unsigned nbins, unsigned nchans,
 			   unsigned total_nsamps, unsigned nsamps, unsigned offset,
 			   unsigned max_blocks, unsigned max_threads)
 {
-  
+
   float tobs = total_nsamps*tsamp;
   float nrots = tobs/period;
   float nrots_per_subint = nrots/nsubints;
@@ -625,12 +625,12 @@ int device_fold_filterbank(float* input, float* output, unsigned* count,
   fold_filterbank_kernel<<<max_blocks,max_threads,mem_size_bytes>>>
     (input, output, count, nchans, tsamp_by_period, accel_fact, nbins,
      nrots_per_subint, nsamps, offset);
-    
+
      }*/
 
 
-__global__ 
-void fold_time_series_kernel(float* input, float* output, 
+__global__
+void fold_time_series_kernel(float* input, float* output,
 			     size_t nsubints,
 			     size_t nbins, size_t nsamps_per_subint,
 			     double tsamp_by_period)
@@ -643,7 +643,7 @@ void fold_time_series_kernel(float* input, float* output,
   size_t data_idx = nsamps_per_subint*blockIdx.x + threadIdx.x;
   size_t ii,jj;
   int idx;
-  
+
   if (threadIdx.x>nbins)
     return;
 
@@ -654,15 +654,15 @@ void fold_time_series_kernel(float* input, float* output,
   }
   //read all data for a subint
   double int_part,float_part;
-  
+
   for (jj = data_idx; jj < (data_idx + nsamps_per_subint); jj += blockDim.x)
     {
       float_part = modf(jj*tsamp_by_period,&int_part);
       idx = __double2int_rd(float_part * nbins);
-      atomicAdd(&soutput[idx], input[jj]); 
+      atomicAdd(&soutput[idx], input[jj]);
       atomicAdd(&count[idx], 1);
     }
-  
+
   for (ii=threadIdx.x; ii<nbins; ii+=blockDim.x)
     output[blockIdx.x * nbins + ii] = soutput[ii]/count[ii];
 }
@@ -686,7 +686,7 @@ void device_fold_timeseries(float* input, float* output,
 }
 
 //--------------FoldOptimiser------------//
-  
+
 __device__ inline cuComplex cuCexpf(cuComplex z)
 {
   cuComplex res;
@@ -743,8 +743,8 @@ void multiply_by_shift_kernel(cuComplex* input, cuComplex* output,
 }
 
 __global__
-void collapse_subints_kernel(cuComplex* input, cuComplex* output, 
-			     unsigned int nbins, unsigned int nints, 
+void collapse_subints_kernel(cuComplex* input, cuComplex* output,
+			     unsigned int nbins, unsigned int nints,
 			     unsigned int nbins_by_nints, unsigned int size)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -755,7 +755,7 @@ void collapse_subints_kernel(cuComplex* input, cuComplex* output,
   unsigned int in_idx = (fold*nbins_by_nints)+bin;
   cuComplex val =  make_cuComplex(0.0,0.0);
   for (int ii=0;ii<nints;ii++)
-    val = cuCaddf(val,input[in_idx+ii*nbins]);  
+    val = cuCaddf(val,input[in_idx+ii*nbins]);
   output[idx] = val;
 }
 
@@ -789,7 +789,7 @@ void cuCabsf_kernel(cuComplex* input, float* output, unsigned int size)
 }
 
 __global__
-void real_to_complex_kernel(float* input, cuComplex* output, unsigned int size) 
+void real_to_complex_kernel(float* input, cuComplex* output, unsigned int size)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx>=size)
@@ -805,7 +805,7 @@ unsigned int device_argmax(float* input, unsigned int size)
   return thrust::distance(ptr,max_elem);
 }
 
-void device_real_to_complex(float* input, cuComplex* output, unsigned int size, 
+void device_real_to_complex(float* input, cuComplex* output, unsigned int size,
 			    unsigned int max_blocks, unsigned int max_threads)
 {
   BlockCalculator calc(size,max_blocks,max_threads);
@@ -841,7 +841,7 @@ void device_generate_shift_array(cuComplex* shifted_ar,
   return;
 }
 
-void device_generate_template_array(cuComplex* templates, unsigned int nbins, 
+void device_generate_template_array(cuComplex* templates, unsigned int nbins,
 				    unsigned int size, unsigned int max_blocks,
 				    unsigned int max_threads)
 {
@@ -869,7 +869,7 @@ void device_multiply_by_shift(cuComplex* input, cuComplex* output,
 
 void device_collapse_subints(cuComplex* input, cuComplex* output,
 			     unsigned int nbins, unsigned int nints,
-			     unsigned int size, unsigned int max_blocks, 
+			     unsigned int size, unsigned int max_blocks,
 			     unsigned int max_threads)
 {
   unsigned int nbins_by_nints = nbins*nints;
@@ -881,7 +881,7 @@ void device_collapse_subints(cuComplex* input, cuComplex* output,
   ErrorChecker::check_cuda_error("Error from device_collapse_subints");
   return;
 }
-  
+
 void device_multiply_by_templates(cuComplex* input, cuComplex* output,
 				  cuComplex* templates, unsigned int nbins,
 				  unsigned int nshifts,
@@ -985,7 +985,7 @@ hd_error median_scrunch5(const hd_float* d_in,
 {
 	thrust::device_ptr<const hd_float> d_in_begin(d_in);
 	thrust::device_ptr<hd_float>       d_out_begin(d_out);
-	
+
 	if( count == 1 ) {
 		*d_out_begin = d_in_begin[0];
 	}
@@ -1037,7 +1037,7 @@ hd_error linear_stretch(const hd_float* d_in,
 {
 	using thrust::make_counting_iterator;
 	thrust::device_ptr<hd_float> d_out_begin(d_out);
-	
+
 	thrust::transform(make_counting_iterator<unsigned int>(0),
 	                  make_counting_iterator<unsigned int>(out_count),
 	                  d_out_begin,
@@ -1045,7 +1045,7 @@ hd_error linear_stretch(const hd_float* d_in,
 	return HD_NO_ERROR;
 }
 
-__global__ 
+__global__
 void divide_c_by_f_kernel(cuComplex* c, float* f, unsigned int size, unsigned int gulp_idx)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
@@ -1081,7 +1081,7 @@ void zap_birdies_kernel(cuComplex* fseries, float* birdies, float* widths,
   float width = widths[idx];
   int low_bin = __float2int_rd((freq-width)/bin_width);
   int high_bin = __float2int_ru((freq+width)/bin_width);
-  
+
   if (low_bin<0)
     low_bin = 0;
   if (low_bin>=fseries_size)
@@ -1105,7 +1105,7 @@ void device_zap_birdies(cuComplex* fseries, float* d_birdies, float* d_widths, f
 
 //--------------coincidence matching--------------//
 
-__global__ 
+__global__
 void coincidence_kernel(float** arrays, float* out_array,
 			int narrays, size_t size,
 			float thresh, int beam_thresh)
@@ -1118,25 +1118,25 @@ void coincidence_kernel(float** arrays, float* out_array,
   out_array[idx] = (count<beam_thresh);
 }
 
-void device_coincidencer(float** arrays, float* out_array, 
+void device_coincidencer(float** arrays, float* out_array,
 			 int narrays, size_t size,
 			 float thresh, int beam_thresh,
-			 unsigned int max_blocks, 
+			 unsigned int max_blocks,
 			 unsigned int max_threads)
 {
-  
+
   BlockCalculator calc(size, max_blocks, max_threads);
   for (int ii=0;ii<calc.size();ii++)
     coincidence_kernel<<<calc[ii].blocks,max_threads>>>
       (arrays,out_array,narrays,size,thresh,beam_thresh);
   ErrorChecker::check_cuda_error("Error from device_coincidencer");
   return;
-  
+
 }
 
 //--------Correlation tools--------//
 
-__global__ void conjugate_kernel(cufftComplex* x, unsigned int size, 
+__global__ void conjugate_kernel(cufftComplex* x, unsigned int size,
 				 unsigned int gulp_idx){
   int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
   if (idx<size)
@@ -1154,7 +1154,7 @@ void device_conjugate(cufftComplex* x, unsigned int size,
   return;
 }
 
-__global__ void cuCmulf_inplace_kernel(cufftComplex* x, cufftComplex* y, 
+__global__ void cuCmulf_inplace_kernel(cufftComplex* x, cufftComplex* y,
 						unsigned int size, unsigned int gulp_idx){
   int idx = blockIdx.x * blockDim.x + threadIdx.x + gulp_idx;
   if (idx<size)
@@ -1205,7 +1205,7 @@ template void device_conversion<char,float>(char*, float*, unsigned int, unsigne
 template void device_conversion<unsigned char,float>(unsigned char*, float*, unsigned int, unsigned int, unsigned int);
 template void device_conversion<unsigned int,float>(unsigned int*, float*, unsigned int, unsigned int, unsigned int);
 template void device_conversion<unsigned char, double>(unsigned char*, double*, unsigned int, unsigned int, unsigned int);
-
+template void device_conversion<float, float>(float*, float*, unsigned int, unsigned int, unsigned int);
 
 
 

@@ -102,11 +102,11 @@ public:
 
   }
 
-  void dedisperse(DispersionTrials<unsigned int>& trials,
+  void dedisperse(DispersionTrials<float>& trials,
                   std::size_t start_sample, std::size_t nsamps,
                   std::size_t gulp)
   {
-    std::vector<unsigned int> temp_buffer;
+    std::vector<float> temp_buffer;
     std::size_t max_delay = dedisp_get_max_delay(plan);
     std::cout << "Max DM delay: " << max_delay << std::endl;
     if (gulp < 2 * max_delay)
@@ -133,7 +133,7 @@ public:
     while (start_sample < total_out_nsamps)
     {
       std::cout << "Dedispersing samples " << start_sample
-	        << " to " << start_sample + gulp << " of " 
+	        << " to " << start_sample + gulp << " of "
                 << total_out_nsamps << std::endl;
       // Load a block of data from the filterbank
       std::size_t loaded_samples = filterbank.load_gulp(start_sample, gulp);
@@ -141,14 +141,14 @@ public:
       // Calculate the expected number of output samples from a dedisp call
       std::size_t dedisp_samples = loaded_samples - max_delay;
       //std::cout << "Dedisp output samples from block: " << dedisp_samples << std::endl;
-       
+
       // Calculate the actual number of samples to memcpy
       std::size_t nsamps_to_copy;
       if (dedisp_samples + start_sample > total_out_nsamps){
         nsamps_to_copy = total_out_nsamps - start_sample;
       } else {
- 	nsamps_to_copy = dedisp_samples;  
-      } 
+ 	nsamps_to_copy = dedisp_samples;
+      }
       // Resize the temporary buffer to handle the output of the next dedisp call
       temp_buffer.resize(gulp * dm_list.size());
 
@@ -164,9 +164,9 @@ public:
       ErrorChecker::check_dedisp_error(error,"execute");
 
       // Get a pointer to the final trials data
-      std::vector<unsigned int> const& data = trials.get_data();
-      //std::cout << "Trials total size: " << data.size() * sizeof(unsigned int) << " bytes" << std::endl; 
-      unsigned int* ptr = reinterpret_cast<unsigned int*>(trials.get_data_ptr());
+      std::vector<float> const& data = trials.get_data();
+      //std::cout << "Trials total size: " << data.size() * sizeof(float) << " bytes" << std::endl;
+      float* ptr = reinterpret_cast<float*>(trials.get_data_ptr());
 
       // Loop over the trials and for each take the data from the temporary buffer
       // and memcpy it into the correct location in the final trials object
@@ -180,17 +180,30 @@ public:
         //std::cout << "Offset " << offset << std::endl;
         //std::cout << "Temp offset " << dedisp_samples * trial_idx << std::endl;
         //std::cout << "Trials size " << trials.get_data().size() << std::endl;
-        //std::cout << "Temp size " << temp_buffer.size() << std::endl; 
+        //std::cout << "Temp size " << temp_buffer.size() << std::endl;
         //std::cout << "nsamps to copy " << nsamps_to_copy << std::endl;
         std::memcpy( reinterpret_cast<char*>(ptr + offset),
                      reinterpret_cast<char*>(temp_buffer.data() + dedisp_samples * trial_idx),
-                     sizeof(unsigned int) * nsamps_to_copy);
+                     sizeof(float) * nsamps_to_copy);
       }
-      
+
       // Update the start_sample based on the number of samples output by dedisp
       start_sample += dedisp_samples;
       //std::cout << "Updating start sample to " << start_sample << std::endl;
     }
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
 

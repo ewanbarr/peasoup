@@ -31,7 +31,7 @@
 #include <cmath>
 #include <map>
 
-typedef unsigned int DedispOutputType;
+typedef float DedispOutputType;
 
 class DMDispenser {
 private:
@@ -98,7 +98,13 @@ public:
 
   Worker(DispersionTrials<DedispOutputType>& trials, DMDispenser& manager,
 	 AccelerationPlan& acc_plan, CmdLineOptions& args, unsigned int size, int device)
-    :trials(trials),manager(manager),acc_plan(acc_plan),args(args),size(size),device(device){}
+    :trials(trials)
+    ,manager(manager)
+    ,acc_plan(acc_plan)
+    ,args(args)
+    ,size(size)
+    ,device(device)
+  {}
 
   void start(void)
   {
@@ -129,7 +135,7 @@ public:
     Zapper* bzap;
     if (args.zapfilename!=""){
       if (args.verbose)
-	std::cout << "Using zapfile: " << args.zapfilename << std::endl;
+	      std::cout << "Using zapfile: " << args.zapfilename << std::endl;
       bzap = new Zapper(args.zapfilename);
     }
     Dereddener rednoise(size/2+1);
@@ -152,27 +158,21 @@ public:
 
       if (ii==-1)
         break;
-      trials.get_idx(ii,tim);
+      trials.get_idx(ii, tim);
 
       if (args.verbose)
 	       std::cout << "Copying DM trial to device (DM: " << tim.get_dm() << ")"<< std::endl;
 
-      Utils::dump_host_buffer<unsigned int>(tim.get_data(), tim.get_nsamps(), "raw_timeseries_before_baseline_removal_host.dump");
-
+      //Utils::dump_host_buffer<unsigned int>(tim.get_data(), tim.get_nsamps(), "raw_timeseries_before_baseline_removal_host.dump");
       d_tim.copy_from_host(tim);
-
-      Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_before_baseline_removal.dump");
-
+      //Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_before_baseline_removal.dump");
       d_tim.remove_baseline(trials.get_nsamps());
-
-
-      Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_after_baseline_removal.dump");
-
+      //Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_after_baseline_removal.dump");
 
       //timers["rednoise"].start()
       if (padding){
 
-      d_tim.fill(trials.get_nsamps(),d_tim.get_nsamps(),0);
+      d_tim.fill(trials.get_nsamps(), d_tim.get_nsamps(), 0);
 
 	    //padding_mean = stats::mean<float>(d_tim.get_data(),trials.get_nsamps());
       }
@@ -408,8 +408,7 @@ int main(int argc, char **argv)
 
     std::vector<float> dm_list_chunk(full_dm_list.begin() + start,  full_dm_list.begin() + end);
 
-    Dedisperser* dedisperser_ptr = new Dedisperser(filobj,nthreads);
-    Dedisperser& dedisperser = *dedisperser_ptr; 
+    Dedisperser dedisperser(filobj, nthreads);
 
     if (args.killfilename!=""){
       if (args.verbose)
@@ -452,7 +451,7 @@ int main(int argc, char **argv)
     if (args.progress_bar)
       printf("Complete (execution time %.2f s)\n",timers["dedispersion"].getTime());
 
-    if (args.progress_bar) std::cout <<"Starting searching..."  << std::endl;
+    std::cout <<"Starting searching..."  << std::endl;
 
     //Multithreading commands
     timers["searching"].start();
@@ -476,7 +475,7 @@ int main(int argc, char **argv)
       delete workers[ii];
     }
     timers["searching"].stop();
-    delete dedisperser_ptr;
+
     if (args.progress_bar)
       printf("Complete (execution time %.2f s)\n",timers["searching"].getTime());
 
