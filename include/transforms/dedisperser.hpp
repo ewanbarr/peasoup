@@ -165,7 +165,7 @@ public:
 
       // Get a pointer to the final trials data
       std::vector<float> const& data = trials.get_data();
-      //std::cout << "Trials total size: " << data.size() * sizeof(float) << " bytes" << std::endl;
+      std::cout << "Trials total size: " << data.size() * sizeof(float) << " bytes" << std::endl;
       float* ptr = reinterpret_cast<float*>(trials.get_data_ptr());
 
       // Loop over the trials and for each take the data from the temporary buffer
@@ -182,6 +182,14 @@ public:
         //std::cout << "Trials size " << trials.get_data().size() << std::endl;
         //std::cout << "Temp size " << temp_buffer.size() << std::endl;
         //std::cout << "nsamps to copy " << nsamps_to_copy << std::endl;
+        
+        //std::cout << "Dest offset: " << offset * sizeof(float) 
+        //          << " size: " << sizeof(float) * trials.get_count() * trials.get_nsamps()  
+        //          << " remaining: " << sizeof(float) * trials.get_count() * trials.get_nsamps() - offset * sizeof(float)
+        //          << " to_copy: " << sizeof(float) * nsamps_to_copy << std::endl;
+        
+
+
         std::memcpy( reinterpret_cast<char*>(ptr + offset),
                      reinterpret_cast<char*>(temp_buffer.data() + dedisp_samples * trial_idx),
                      sizeof(float) * nsamps_to_copy);

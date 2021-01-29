@@ -161,19 +161,27 @@ public:
       trials.get_idx(ii, tim);
 
       if (args.verbose)
-	       std::cout << "Copying DM trial to device (DM: " << tim.get_dm() << ")"<< std::endl;
-
-      //Utils::dump_host_buffer<unsigned int>(tim.get_data(), tim.get_nsamps(), "raw_timeseries_before_baseline_removal_host.dump");
+      {
+          std::cout << "Copying DM trial to device (DM: " << tim.get_dm() << ")"<< std::endl;
+          std::cout << "Transferring " << tim.get_nsamps() << " samples" << std::endl;
+      }
+      //Utils::dump_host_buffer<float>(tim.get_data(), tim.get_nsamps(), "raw_timeseries_before_baseline_removal_host.dump");
       d_tim.copy_from_host(tim);
+      if (args.verbose) std::cout << "Copy from host complete\n";
       //Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_before_baseline_removal.dump");
-      d_tim.remove_baseline(trials.get_nsamps());
+      if (args.verbose) std::cout << "Removing baseline\n";
+      d_tim.remove_baseline(std::min(trials.get_nsamps(), d_tim.get_nsamps()));
+      if (args.verbose) std::cout << "Baseline removed\n";
       //Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_after_baseline_removal.dump");
 
       //timers["rednoise"].start()
       if (padding){
-
-      d_tim.fill(trials.get_nsamps(), d_tim.get_nsamps(), 0);
-
+      if (args.verbose) std::cout << "Padding with zeros\n";
+            if (trials.get_nsamps() >= d_tim.get_nsamps()){
+                //NOOP
+            } else {  
+                d_tim.fill(trials.get_nsamps(), d_tim.get_nsamps(), 0);
+            }
 	    //padding_mean = stats::mean<float>(d_tim.get_data(),trials.get_nsamps());
       }
 
