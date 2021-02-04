@@ -406,7 +406,6 @@ int main(int argc, char **argv)
       bool result = getFileContent(args.dm_file, full_dm_list);
   }
 
-  if (args.host_ram_limit_gb)
   float nbytes = args.host_ram_limit_gb * 1e9;
   std::size_t ndm_trial_gulp = std::size_t(nbytes / (filobj.get_nsamps() * sizeof(float)));
   if (ndm_trial_gulp == 0)
