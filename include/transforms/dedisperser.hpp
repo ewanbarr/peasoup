@@ -125,10 +125,15 @@ public:
 
     // Calculated the total number of output samples expected
     std::size_t total_out_nsamps = nsamps - max_delay;
-    //std::cout << "Total Dedisp output samples: " << total_out_nsamps << std::endl;
+    std::cout << "Total Dedisp output samples: " << total_out_nsamps << std::endl;
 
     // Create a complete trials object to contain all trials at full length
+    //std::cout << "DM list size " << dm_list.size() << std::endl;
+    //std::cout << "Trials pre size " << trials.get_data().size() << std::endl;
+    //std::cout << "Count " << trials.get_count() << " nsamps " << trials.get_nsamps() << std::endl;
     trials.resize(total_out_nsamps, dm_list);
+    //std::cout << "Trials post size " << trials.get_data().size() << std::endl;
+    //std::cout << "Count " << trials.get_count() << " nsamps " << trials.get_nsamps() << std::endl;
 
     while (start_sample < total_out_nsamps)
     {
@@ -199,6 +204,7 @@ public:
       start_sample += dedisp_samples;
       //std::cout << "Updating start sample to " << start_sample << std::endl;
     }
+    
   }
 };
 

@@ -50,7 +50,7 @@
 template <class T> class TimeSeries {
 protected:
   T* data_ptr; /*!< Pointer to timeseries data.*/
-  unsigned int nsamps; /*!< Number of samples.*/
+  std::size_t nsamps; /*!< Number of samples.*/
   float tsamp; /*!< Sampling time (seconds).*/
 
 public:
@@ -61,7 +61,7 @@ public:
     \param nsamps Number of samples.
     \param tsamp Sampling time (seconds).
   */
-  TimeSeries(T* data_ptr,unsigned int nsamps,float tsamp)
+  TimeSeries(T* data_ptr, std::size_t nsamps, float tsamp)
     :data_ptr(data_ptr), nsamps(nsamps), tsamp(tsamp){}
 
   /*!
@@ -74,7 +74,7 @@ public:
     :data_ptr(0), nsamps(0.0), tsamp(0.0) {}
 
   //Why does this exist?
-  TimeSeries(unsigned int nsamps)
+  TimeSeries(std::size_t nsamps)
     :data_ptr(0), nsamps(nsamps), tsamp(0.0){}
 
   /*!
@@ -83,7 +83,7 @@ public:
     \param n Index of sample.
     \return nth sample from timeseries.
   */
-  T operator[](int n){
+  T operator[](std::size_t n){
     return data_ptr[n];
   }
 
@@ -106,14 +106,14 @@ public:
 
   \return Number of samples in the time series.
   */
-  unsigned int get_nsamps(void){return nsamps;}
+  std::size_t get_nsamps(void){return nsamps;}
 
   /*!
     \brief Set the number of samples.
 
     \param Number of samples in timeseries.
   */
-  void set_nsamps(unsigned int nsamps){this->nsamps = nsamps;}
+  void set_nsamps(std::size_t nsamps){this->nsamps = nsamps;}
 
   /*!
     \brief Get sampling time.
@@ -188,7 +188,7 @@ public:
     \param tsamp Sampling time (seconds).
     \param dm  Dispersion measure (pc cm^-3).
   */
-  DedispersedTimeSeries(T* data_ptr, unsigned int nsamps, float tsamp, float dm)
+  DedispersedTimeSeries(T* data_ptr, std::size_t nsamps, float tsamp, float dm)
     :TimeSeries<T>(data_ptr,nsamps,tsamp),dm(dm){}
 
   /*!
@@ -213,7 +213,7 @@ class FilterbankChannel: public TimeSeries<T> {
 private:
   float freq;
 public:
-  FilterbankChannel(T* data_ptr, unsigned int nsamps, float tsamp, float freq)
+  FilterbankChannel(T* data_ptr, std::size_t nsamps, float tsamp, float freq)
     :TimeSeries<T>(data_ptr,nsamps,tsamp),freq(freq){}
 };
 
@@ -236,7 +236,7 @@ public:
 
     \param nsamps Number of samples.
   */
-  DeviceTimeSeries(unsigned int nsamps)
+  DeviceTimeSeries(std::size_t nsamps)
     :TimeSeries<OnDeviceType>(nsamps)
   {
     Utils::device_malloc<OnDeviceType>(&this->data_ptr,nsamps);
@@ -270,11 +270,11 @@ public:
     Utils::device_free(copy_buffer);
   }
 
-  void remove_baseline(unsigned int nsamps=0){
+  void remove_baseline(std::size_t nsamps=0){
 
     if(nsamps == 0) nsamps = this->nsamps;
 
-    GPU_remove_baseline<OnDeviceType>(this->data_ptr,nsamps);
+    GPU_remove_baseline<OnDeviceType>(this->data_ptr, static_cast<std::size_t>(nsamps));
   }
 
   /*!
@@ -326,7 +326,7 @@ public:
 
     \param nsamps Number of samples.
   */
-  ReusableDeviceTimeSeries(unsigned int nsamps)
+  ReusableDeviceTimeSeries(std::size_t nsamps)
     :DeviceTimeSeries<OnDeviceType>(nsamps)
   {
     Utils::device_malloc<OnHostType>(&copy_buffer,this->nsamps);
@@ -374,9 +374,9 @@ template <class T>
 class TimeSeriesContainer {
 protected:
   std::vector<T> data; /*!< Pointer to timeseries.*/
-  unsigned int nsamps; /*!< Number of samples in each timeseries.*/
+  std::size_t nsamps; /*!< Number of samples in each timeseries.*/
   float tsamp; /*!< Sampling time of each timeseries (seconds).*/
-  unsigned int count; /*!< Number of timeseries.*/
+  std::size_t count; /*!< Number of timeseries.*/
 
   /*!
     \brief Construct a new TimeSeriesContainer instance.
@@ -395,16 +395,16 @@ public:
 
   \return Number of timeseries.
   */
-  unsigned int get_count(void){return count;}
+  std::size_t get_count(void){return count;}
 
   /*!
   \brief Get the number of samples in each timeseries.
   \return Number of samples.
   */
-  unsigned int get_nsamps(void){return nsamps;}
+  std::size_t get_nsamps(void){return nsamps;}
 
 
-  void set_nsamps(unsigned int nsamps_in){ nsamps = nsamps_in;}
+  void set_nsamps(std::size_t nsamps_in){ nsamps = nsamps_in;}
 
 
   /*!
@@ -434,11 +434,13 @@ public:
   }
 
 
-  void resize(unsigned int out_nsamps, unsigned int count_in){
+  void resize(std::size_t out_nsamps, std::size_t count_in){
     nsamps = out_nsamps;
     count = count_in;
+    //std::cout << "RESIZE " << out_nsamps << " * " << count_in << " = " << out_nsamps * count_in << std::endl;
+    //std::cout << "presize: " << data.size() << std::endl;
     data.resize(out_nsamps * count_in);
-
+    //std::cout << "postsize: " << data.size() << std::endl;
   }
 
 };
@@ -477,7 +479,7 @@ public:
     \param idx Index of desired time series.
     \return DedispersedTimeSeries instance.
   */
-  DedispersedTimeSeries<T> operator[](int idx)
+  DedispersedTimeSeries<T> operator[](std::size_t idx)
   {
     T* ptr = this->get_data_ptr() + idx*(size_t)this->nsamps;
     return DedispersedTimeSeries<T>(ptr, this->nsamps, this->tsamp, dm_list[idx]);
@@ -491,15 +493,15 @@ public:
     \note This function is implemented as an alternative to the
     overloaded [] operator.
   */
-  void get_idx(unsigned int idx, DedispersedTimeSeries<T>& tim){
+  void get_idx(std::size_t idx, DedispersedTimeSeries<T>& tim){
     T* ptr = this->get_data_ptr() + (size_t)idx*(size_t)this->nsamps;
     tim.set_data(ptr);
     tim.set_dm(dm_list[idx]);
     tim.set_nsamps(this->nsamps);
     tim.set_tsamp(this->tsamp);
   }
-  void resize(unsigned int out_nsamps, std::vector<float> dm_list_in){
-    dm_list.swap(dm_list_in);
+  void resize(std::size_t out_nsamps, std::vector<float> const&  dm_list_in){
+    dm_list = dm_list_in; //Make a copy
     TimeSeriesContainer<T>::resize(out_nsamps, dm_list.size());
   }
 
@@ -512,6 +514,6 @@ public:
 template <class T>
 class FilterbankChannels: public TimeSeriesContainer<T> {
 public:
-  FilterbankChannel<T> operator[](int idx);
+  FilterbankChannel<T> operator[](std::size_t idx);
   FilterbankChannel<T> nearest_chan(float freq);
 };
