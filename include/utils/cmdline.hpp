@@ -15,8 +15,8 @@ struct CmdLineOptions {
   float dm_tol;
   float dm_pulse_width;
   std::string dm_file;
-  int ndm_trial_gulp;
   int dedisp_gulp;
+  float host_ram_limit_gb;
   float acc_start;
   float acc_end;
   float acc_tol;
@@ -122,13 +122,13 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
                                                 "Minimum pulse width for which dm_tol is valid",
                                                 false, 64.0, "float (us)",cmd);
 
-      TCLAP::ValueArg<int> arg_ndm_trial_gulp("", "ndm_trial_gulp",
-                                                "Number of DM trials to dedisperse at once (useful for RAM limitations), default: all",
-                                                false, -1, "int", cmd);
+      TCLAP::ValueArg<float> arg_host_ram_limit_gb("", "ram_limit_gb",
+                                                "The maximum host RAM to be used during processing (affects the number of file reads to be made during dedispersion)",
+                                                false, 20.0, "float", cmd);
 
       TCLAP::ValueArg<int> arg_dedisp_gulp("", "dedisp_gulp",
                                                 "Number of samples to read at a time during dedispersion, default: all",
-                                                false, -1, "int", cmd);
+                                                false, 1e6, "int", cmd);
 
       TCLAP::ValueArg<float> arg_acc_start("", "acc_start",
 					   "First acceleration to resample to",
@@ -199,7 +199,7 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
       args.dm_start            = arg_dm_start.getValue();
       args.dm_tol            = arg_dm_tol.getValue();
       args.dm_pulse_width    = arg_dm_pulse_width.getValue();
-      args.ndm_trial_gulp    = arg_ndm_trial_gulp.getValue();
+      args.host_ram_limit_gb = arg_host_ram_limit_gb.getValue();
       args.dedisp_gulp       = arg_dedisp_gulp.getValue();
       args.acc_start         = arg_acc_start.getValue();
       args.acc_end           = arg_acc_end.getValue();

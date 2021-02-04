@@ -179,7 +179,7 @@ public:
       if (args.verbose) std::cout << "Padding with zeros\n";
             if (trials.get_nsamps() >= d_tim.get_nsamps()){
                 //NOOP
-            } else {  
+            } else {
                 d_tim.fill(trials.get_nsamps(), d_tim.get_nsamps(), 0);
             }
 	    //padding_mean = stats::mean<float>(d_tim.get_data(),trials.get_nsamps());
@@ -357,13 +357,15 @@ int main(int argc, char **argv)
   int nthreads = std::min(Utils::gpu_count(),args.max_num_threads);
   nthreads = std::max(1,nthreads);
 
+  /* Could do a check on the GPU memory usage here */
+
   if (args.verbose)
     std::cout << "Using file: " << args.infilename << std::endl;
   std::string filename(args.infilename);
 
   //Stopwatch timer;
   if (args.progress_bar)
-    printf("Reading data from %s\n",args.infilename.c_str());
+    printf("Reading header from %s\n",args.infilename.c_str());
 
   timers["reading"].start();
   SigprocFilterbank filobj(filename);
@@ -396,45 +398,49 @@ int main(int argc, char **argv)
   std::vector<float> full_dm_list;
 
   if (args.dm_file=="none") {
-    Dedisperser dedisperser(filobj,nthreads);
-    dedisperser.generate_dm_list(args.dm_start,args.dm_end,args.dm_pulse_width,args.dm_tol);
+    Dedisperser dedisperser(filobj, nthreads);
+    dedisperser.generate_dm_list(args.dm_start, args.dm_end, args.dm_pulse_width, args.dm_tol);
     full_dm_list = dedisperser.get_dm_list();
-
   }
   else {
       bool result = getFileContent(args.dm_file, full_dm_list);
   }
 
-  int ndm_trial_gulp = args.ndm_trial_gulp != -1 ?  args.ndm_trial_gulp : full_dm_list.size();
-
-  for(int idx=0; idx< full_dm_list.size(); idx += ndm_trial_gulp){
-
-    int start = idx;
-    int end   = (idx + ndm_trial_gulp) > full_dm_list.size() ? full_dm_list.size(): (idx + ndm_trial_gulp) ;
-
+  if (args.host_ram_limit_gb)
+  float nbytes = args.host_ram_limit_gb * 1e9;
+  std::size_t ndm_trial_gulp = std::size_t(nbytes / (filobj.get_nsamps() * sizeof(float)));
+  if (ndm_trial_gulp == 0)
+  {
+    throw std::runtime_error("Insufficient RAM specified to allow for dedispersion");
+  }
+  else if (ndm_trial_gulp > full_dm_list.size())
+  {
+    ndm_trial_gulp = full_dm_list.size();
+  }
+  for(std::size_t idx=0; idx < full_dm_list.size(); idx += ndm_trial_gulp){
+    std::size_t start = idx;
+    std::size_t end   = (idx + ndm_trial_gulp) > full_dm_list.size() ? full_dm_list.size(): (idx + ndm_trial_gulp) ;
     if(args.verbose) std::cout << "Gulp start: " << start << " end: " << end << std::endl;
-
     std::vector<float> dm_list_chunk(full_dm_list.begin() + start,  full_dm_list.begin() + end);
-
     Dedisperser dedisperser(filobj, nthreads);
-
     if (args.killfilename!=""){
       if (args.verbose)
         std::cout << "Using killfile: " << args.killfilename << std::endl;
       dedisperser.set_killmask(args.killfilename);
     }
 
-
     dedisperser.set_dm_list(dm_list_chunk);
 
     if (args.verbose){
     std::cout << dm_list_chunk.size() << " DM trials" << std::endl;
-    for (int ii=0;ii<dm_list_chunk.size();ii++)
+    for (std::size_t ii = 0; ii < dm_list_chunk.size(); ii++)
+    {
       std::cout << dm_list_chunk[ii] << std::endl;
+    }
     std::cout << "Executing dedispersion" << std::endl;
     }
 
-    if (args.progress_bar) std::cout <<"Starting dedispersion:" <<start << "to" << end << "..." << std::endl;
+    if (args.progress_bar) std::cout <<"Starting dedispersion: " << start << " to " << end << "..." << std::endl;
 
     timers["dedispersion"].start();
     PUSH_NVTX_RANGE("Dedisperse",3)
