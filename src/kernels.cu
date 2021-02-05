@@ -476,14 +476,6 @@ void GPU_remove_baseline(T* d_collection, int nsamps){
 
   }while(abs(mean) > 5e-7 * nsamps);
 
-  thrust::for_each(thrust::device_ptr<T>(d_collection),
-        thrust::device_ptr<T>(d_collection)+nsamps,thrust::placeholders::_1 -= mean);
-
-
-//  float mean = GPU_mean(d_collection, nsamps, 0);
-
-//  thrust::for_each(thrust::device_ptr<T>(d_collection),   thrust::device_ptr<T>(d_collection)+nsamps,thrust::placeholders::_1 -= mean);
-
 }
 
 

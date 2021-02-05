@@ -170,14 +170,14 @@ public:
       if (args.verbose) std::cout << "Copy from host complete\n";
       //Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_before_baseline_removal.dump");
       if (args.verbose) std::cout << "Removing baseline\n";
-      d_tim.remove_baseline(std::min(trials.get_nsamps(), d_tim.get_nsamps()));
+      d_tim.remove_baseline(std::min(tim.get_nsamps(), d_tim.get_nsamps()));
       if (args.verbose) std::cout << "Baseline removed\n";
       //Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_after_baseline_removal.dump");
 
       //timers["rednoise"].start()
       if (padding){
       if (args.verbose) std::cout << "Padding with zeros\n";
-            if (trials.get_nsamps() >= d_tim.get_nsamps()){
+            if (tim.get_nsamps() >= d_tim.get_nsamps()){
                 //NOOP
             } else {
                 d_tim.fill(trials.get_nsamps(), d_tim.get_nsamps(), 0);
