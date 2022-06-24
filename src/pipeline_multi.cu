@@ -388,9 +388,16 @@ int main(int argc, char **argv)
   if (args.verbose)
     std::cout << "Setting transform length to " << size << " points" << std::endl;
 
-  AccelerationPlan acc_plan(args.acc_start, args.acc_end, args.acc_tol,
-            args.acc_pulse_width, size, filobj.get_tsamp(),
-            filobj.get_cfreq(), filobj.get_foff());
+  AccelerationPlan acc_plan(
+    args.acc_start, // m/s^2
+    args.acc_end,   // m/s^2
+    args.acc_tol,   // dimensionless
+    args.acc_pulse_width * 1e-6, // cmd line arg is microseconds but needs to be passed as seconds
+    size, // dimensionless
+    filobj.get_tsamp(), // seconds
+    filobj.get_cfreq() * 1e6, // from header in MHz needs converted to Hz
+    filobj.get_foff() * 1e6 // from header in MHz needs converted to Hz
+    );
 
 
   if (args.verbose)

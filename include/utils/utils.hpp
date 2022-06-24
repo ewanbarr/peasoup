@@ -5,6 +5,7 @@
 #include <utils/exceptions.hpp>
 #include <fstream>
 #include <vector>
+#include <algorithm>
 #include <iostream>
 
 class Utils {
@@ -138,56 +139,91 @@ public:
 };
 
 class AccelerationPlan {
-private:
-  float acc_lo;
-  float acc_hi;
-  float tol;
-  float pulse_width;
-  unsigned int nsamps;
-  float tsamp;
-  float cfreq;
-  float cfreq_GHz;
-  float bw;
-  float tsamp_us;
-  float tobs;
+  private:
+    float acc_lo;             // lowest acceleration in m/s^2
+    float acc_hi;             // highest acceleration in m/s^2
+    float tol;                // dimensionless smearning tolerance 1.1 ~ 10%
+    float pulse_width;        // minimum pulse width in seconds
+    std::size_t nsamps;       // number of samples in time series
+    float tsamp;              // sampling interval in seconds
+    float cfreq;              // reference frqeuency in Hz
+    float ch_bw;              // channel bandwidth in Hz
 
 public:
   AccelerationPlan(float acc_lo, float acc_hi, float tol,
-		   float pulse_width, unsigned int nsamps,
-		   float tsamp, float cfreq, float bw)
-    :acc_lo(acc_lo),acc_hi(acc_hi),tol(tol),
-     pulse_width(pulse_width),nsamps(nsamps),
-     tsamp(tsamp),cfreq(cfreq),bw(fabs(bw))
+    float pulse_width, std::size_t nsamps, float tsamp,
+    float cfreq, float ch_bw)
+    :acc_lo(acc_lo), acc_hi(acc_hi), tol(tol), pulse_width(pulse_width),
+     nsamps(nsamps), tsamp(tsamp), cfreq(cfreq), ch_bw(fabs(ch_bw)) //bandwidth is always positive here
   {
-    tsamp_us = 1.0e6 * tsamp;
-    tobs = nsamps*tsamp;
-    cfreq_GHz = 1.0e-3 * cfreq;
-    pulse_width /= 1.0e3;
   }
-  
-  void generate_accel_list(float dm,std::vector<float>& acc_list){
-    if (acc_hi==acc_lo){
-      acc_list.clear();
-      acc_list.push_back(0.0);
+
+  float dispersive_smear(float dm) const
+  /*
+   * Return the dispersive smear in seconds
+   */
+  {
+    // Frequencies need to be converted to GHz
+    float ftop = (cfreq + ch_bw/2) / 1e9;
+    float fbottom = (cfreq - ch_bw/2) / 1e9;
+    return 4.15e-3 * (1/(fbottom * fbottom) - 1/(ftop * ftop)) * dm;
+  }
+
+  float pulse_broadening(float dm) const
+  /*
+   * Return the pulse broadinging for a given dm in seconds
+   */
+  {
+    float tdm = this->dispersive_smear(dm);
+    //cout << "Dispersive smear (s): " << tdm << "\n";
+    return sqrt((tdm * tdm) + (pulse_width * pulse_width) + (tsamp * tsamp));
+  }
+
+  float accel_step(float dm) const
+  /*
+   * Return the optimal acceleration step in m/s/s
+   */
+
+  {
+    float broadening = this->pulse_broadening(dm);
+    //cout << "Total broadening (s): " << broadening << "\n";
+    float factor = sqrt((tol * tol) - 1.0);
+    float tobs = nsamps * tsamp;
+    return 2.0 * broadening * 24.0 * 299792458.0/(tobs * tobs) * factor;
+  }
+
+  void generate_accel_list(
+    float dm,
+    std::vector<float>& acc_list) const
+  /*
+   * Return the acceleration list for the
+   * given parameters
+   */
+  {
+    acc_list.clear();
+    if (acc_hi == acc_lo){
+      acc_list.push_back(acc_hi);
       return;
     }
 
-    float tdm = pow(8.3*bw/pow(cfreq,3.0)*dm,2.0);
-    float tpulse = pulse_width * pulse_width;
-    float ttsamp = tsamp * tsamp;
-    float w_us = sqrt(tdm+tpulse+ttsamp);
-    float alt_a = 2.0 * w_us * 1.0e-6 * 24.0 * 299792458.0/tobs/tobs * sqrt((tol*tol)-1.0);
-    unsigned int naccels = (unsigned int)((float)(acc_hi-acc_lo))/alt_a;
-    acc_list.clear();
-    acc_list.reserve(naccels+3);
-    if (acc_hi!=0 && acc_lo!=0)
-      acc_list.push_back(0.0); //explicitly force zero acceleration.
+    if ((acc_hi >= 0) && (acc_lo <= 0))
+    {
+      acc_list.push_back(0.0f);
+    }
+
+    float step = this->accel_step(dm);
+    //cout << "Acceleration step (m/s/s): " << step << "\n";
     float acc = acc_lo;
-    while (acc<acc_hi){
+    while (acc <= acc_hi)
+    {
       acc_list.push_back(acc);
-      acc+=alt_a;
+      acc += step;
     }
     acc_list.push_back(acc_hi);
+
+    std::sort(acc_list.begin(), acc_list.end());
+    auto last = std::unique(acc_list.begin(), acc_list.end());
+    acc_list.erase(last, acc_list.end());
     return;
   }
 };
