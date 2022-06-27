@@ -142,6 +142,10 @@ public:
                 << total_out_nsamps << std::endl;
       // Load a block of data from the filterbank
       std::size_t loaded_samples = filterbank.load_gulp(start_sample, gulp);
+      if (loaded_samples == 0)
+      {
+          throw std::runtime_error("Failure on reading data during dedispersion, 0 bytes read.");
+      }
 
       // Calculate the expected number of output samples from a dedisp call
       std::size_t dedisp_samples = loaded_samples - max_delay;
