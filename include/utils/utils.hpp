@@ -222,7 +222,7 @@ public:
     acc_list.push_back(acc_hi);
 
     std::sort(acc_list.begin(), acc_list.end());
-    auto last = std::unique(acc_list.begin(), acc_list.end());
+    std::vector<float>::iterator last = std::unique(acc_list.begin(), acc_list.end());
     acc_list.erase(last, acc_list.end());
     return;
   }
