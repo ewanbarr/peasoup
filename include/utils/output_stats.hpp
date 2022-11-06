@@ -70,6 +70,14 @@ public:
     root.append(header);
   }
 
+  void add_segment_parameters(SigprocFilterbank& f){
+    XML::Element segment_parameters("segment_parameters");
+    segment_parameters.append(XML::Element("segment_start_sample", f.get_start_sample()));
+    segment_parameters.append(XML::Element("segment_nsamples", f.get_effective_nsamps()));
+    segment_parameters.append(XML::Element("segment_pepoch", f.get_segment_pepoch()));
+    root.append(segment_parameters);
+  }
+
   void add_search_parameters(CmdLineOptions& args){
     XML::Element search_options("search_parameters");
     search_options.append(XML::Element("infilename",args.infilename));
