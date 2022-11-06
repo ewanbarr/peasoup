@@ -40,18 +40,21 @@
   All time and frequency resolved data types should inherit
   from this class. Class presents virtual set and get methods
   for various requrired meta data. The filterbank data itself
-  is stred in the *data pointer as unsigend chars.
+  is stred in the *data pointer as unsigned chars.
 */
 class Filterbank {
 protected:
   //Filterbank metadata
   unsigned char* data; /*!< Pointer to filterbank data.*/
-  unsigned int nsamps; /*!< Number of time samples. */
+  unsigned int total_nsamps; /*!< Number of time samples. */
   unsigned int nchans; /*!< Number of frequecy channels. */
   unsigned char nbits; /*!< Bits per time sample. */
   float fch1; /*!< Frequency of top channel (MHz) */
   float foff; /*!< Channel bandwidth (MHz) */
   float tsamp; /*!< Sampling time (seconds) */
+  unsigned long start_sample; 
+  unsigned long end_sample;
+  unsigned long effective_nsamps;
 
   /*!
     \brief Instantiate a new Filterbank object with metadata.
@@ -60,18 +63,18 @@ protected:
     pointer and metadata.
 
     \param data_ptr A pointer to a memory location containing filterbank data.
-    \param nsamps The number of time samples in the data.
+    \param total_nsamps The number of time samples in the data.
     \param nchans The number of frequency channels in that data.
     \param nbins The size of a single data point in bits.
     \param fch1 The centre frequency of the first data channel.
     \param foff The bandwidth of a frequency channel.
     \param tsamp The sampling time of the data.
   */
-  Filterbank(unsigned char* data_ptr, unsigned int nsamps,
+  Filterbank(unsigned char* data_ptr, unsigned int total_nsamps,
 	     unsigned int nchans, unsigned char nbits,
-	     float fch1, float foff, float tsamp)
-    :data(data_ptr),nsamps(nsamps),nchans(nchans),
-     nbits(nbits),fch1(fch1),foff(foff),tsamp(tsamp){}
+	     float fch1, float foff, float tsamp, float start_sample, float end_sample)
+    :data(data_ptr),total_nsamps(total_nsamps),nchans(nchans),
+     nbits(nbits),fch1(fch1),foff(foff),tsamp(tsamp), start_sample(start_sample), end_sample(end_sample){}
 
   /*!
     \brief Instantiate a new default Filterbank object.
@@ -80,8 +83,10 @@ protected:
     all metadata set to zero.
   */
   Filterbank(void)
-    :data(0),nsamps(0),nchans(0),
-     nbits(0),fch1(0.0),foff(0.0),tsamp(0.0){}
+    :data(0),total_nsamps(0),nchans(0),
+     nbits(0),fch1(0.0),foff(0.0),tsamp(0.0), start_sample(0.0), end_sample(0.0){}     
+
+
 
 public:
 
@@ -146,14 +151,14 @@ public:
 
     \return The number of time samples.
   */
-  virtual unsigned int get_nsamps(void){return nsamps;}
+  virtual unsigned int get_total_nsamps(void){return total_nsamps;}
 
   /*!
     \brief Set the number of time samples in data.
 
     \param nsamps The number of time samples.
   */
-  virtual void set_nsamps(unsigned int nsamps){this->nsamps = nsamps;}
+  virtual void set_total_nsamps(unsigned int total_nsamps){this->total_nsamps = total_nsamps;}
 
   /*!
     \brief Get the number of bits per sample.
@@ -176,6 +181,31 @@ public:
   */
   virtual unsigned char* get_data(void){return this->data;}
 
+    /*!
+    \brief Get the segment start sample.
+
+    \return The segment start sample.
+  */
+
+  virtual unsigned long get_start_sample(void){return this->start_sample;}
+
+    /*!
+    \brief Get the segment end sample.
+
+    \return The segment end sample.
+  */
+
+  virtual unsigned long get_end_sample(void){return this->end_sample;}
+   
+
+  /*!
+    \brief Get the segment nsamples
+
+    \return The segment nsamples.
+  */
+
+  virtual unsigned long get_effective_nsamps(void){return this->effective_nsamps;}
+
   /*!
     \brief Set the filterbank data pointer.
 
@@ -187,6 +217,10 @@ public:
   {
     /* NOT IMPLEMENTED */
     return 0;
+  }
+
+  virtual float get_segment_pepoch(){
+    return -1;
   }
 
   /*!
@@ -222,7 +256,7 @@ public:
 
     \param filename Path to a valid sigproc filterbank file.
   */
-  SigprocFilterbank(std::string filename)
+  SigprocFilterbank(std::string filename, std::size_t segment_start_sample, std::size_t segment_nsamples)
   {
     // Open filterbank
     this->_filestream.open(filename.c_str(), std::ifstream::in | std::ifstream::binary);
@@ -231,29 +265,44 @@ public:
     // Read the header
     read_header(this->_filestream, this->_header);
 
-    //removing the last 1 second of data that could have different statistics (EB: eh?)
-    this->_header.nsamples -= (std::size_t)(1.0f / this->_header.tsamp);
-    this->nsamps = this->_header.nsamples;
+    //removing the last 1 second of data that could have different statistics (EB: eh?) (VK: double eh? commenting this out.)
+    //  this->_header.nsamples -= (std::size_t)(1.0f / this->_header.tsamp);
+    this->total_nsamps = this->_header.nsamples;
     this->nchans = this->_header.nchans;
     this->tsamp = this->_header.tsamp;
     this->nbits = this->_header.nbits;
     this->fch1 = this->_header.fch1;
     this->foff  = this->_header.foff;
+
+    this->start_sample = segment_start_sample;
+
+    if(segment_nsamples == 0 || segment_nsamples > this->total_nsamps) {this->end_sample = this->total_nsamps - segment_start_sample;}
+    else {this->end_sample = segment_start_sample + segment_nsamples;}
+
+
+    // if end is > start, or if start/end > total size, then 
+    if (this->end_sample < this->start_sample || this->start_sample > this->total_nsamps || this->end_sample > this->total_nsamps){
+      ErrorChecker::throw_error("Invalid start and end samples provided.");
+    }
+
+    this->effective_nsamps = this->end_sample - this->start_sample;
+
     set_data(_data.data());
   }
+
 
   /*
    * Load a gulp and return the actual number of samples loaded
    */
-  std::size_t load_gulp(std::size_t start_sample, std::size_t nsamples)
+  std::size_t load_gulp(std::size_t gulp_start_sample, std::size_t gulp_nsamples)
   {
     std::cout << "Loading filterbank gulp,"
-              << " start = " << start_sample
-              << " nsamples = " << nsamples
+              << " start = " << gulp_start_sample
+              << " nsamples = " << gulp_nsamples
               << std::endl;
-    std::size_t size = static_cast<std::size_t>(nsamples * _header.nbits * _header.nchans / 8);
+    std::size_t size = static_cast<std::size_t>(gulp_nsamples * _header.nbits * _header.nchans / 8);
     _data.resize(size);
-    std::size_t byte_offset = start_sample * _header.nbits * _header.nchans / 8;
+    std::size_t byte_offset = gulp_start_sample * _header.nbits * _header.nchans / 8;
     _filestream.clear();
     _filestream.seekg(_header.size + byte_offset, std::ios::beg);
     //std::cout << "Filestream pointer at " << _filestream.tellg() << std::endl;
@@ -264,6 +313,20 @@ public:
     std::size_t nsamps_read = bytes_read / ( _header.nbits * _header.nchans / 8);
     std::cout << "Loaded " << nsamps_read << " samples" << std::endl;
     return nsamps_read;
+  }
+
+
+
+  float get_segment_pepoch(){
+
+    float start_time = this->start_sample * this->tsamp/86400.0;
+
+    float end_time =  this->end_sample * this->tsamp/86400.0;
+
+    std::cout << this->_header.tstart << " " << this->start_sample << " " << this->end_sample  << " " <<this->tsamp << std::endl;
+
+    float pepoch = this->_header.tstart + 0.5 * (end_time - start_time);
+    return pepoch;
   }
 
   /*!

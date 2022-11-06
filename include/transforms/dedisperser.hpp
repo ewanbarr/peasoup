@@ -116,11 +116,11 @@ public:
                 << gulp << " bytes"<< std::endl;
     }
 
-    if ((start_sample + nsamps) > filterbank.get_nsamps())
+    if ((start_sample + nsamps) > filterbank.get_effective_nsamps())
     {
-      nsamps = filterbank.get_nsamps() - start_sample;
+      nsamps = filterbank.get_effective_nsamps() - start_sample;
       std::cerr << "WARNING: Number of sample requested exceeds input filterbank length "
-                << "revising to " << nsamps << " samples" << std::endl;
+                << "revising from" << (start_sample + nsamps) << "to " << nsamps << " samples" << std::endl;
     }
 
     // Calculated the total number of output samples expected
@@ -128,12 +128,9 @@ public:
     std::cout << "Total Dedisp output samples: " << total_out_nsamps << std::endl;
 
     // Create a complete trials object to contain all trials at full length
-    //std::cout << "DM list size " << dm_list.size() << std::endl;
-    //std::cout << "Trials pre size " << trials.get_data().size() << std::endl;
-    //std::cout << "Count " << trials.get_count() << " nsamps " << trials.get_nsamps() << std::endl;
+
     trials.resize(total_out_nsamps, dm_list);
-    //std::cout << "Trials post size " << trials.get_data().size() << std::endl;
-    //std::cout << "Count " << trials.get_count() << " nsamps " << trials.get_nsamps() << std::endl;
+
 
     while (start_sample < total_out_nsamps)
     {

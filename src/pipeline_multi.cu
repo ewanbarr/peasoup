@@ -147,7 +147,7 @@ public:
     HarmonicDistiller harm_finder(args.freq_tol,args.max_harm,false);
     AccelerationDistiller acc_still(tobs,args.freq_tol,true);
     float mean,std,rms;
-    float padding_mean;
+    //float padding_mean;
     int ii;
 
 	PUSH_NVTX_RANGE("DM-Loop",0)
@@ -367,26 +367,28 @@ int main(int argc, char **argv)
   if (args.progress_bar)
     printf("Reading header from %s\n",args.infilename.c_str());
 
+
+  if (args.nsamples > 0 && args.size > 0 && args.nsamples > args.size) ErrorChecker::throw_error("nsamples cannot be > fft size.");
+  if (args.size > 0)  args.nsamples =  args.size;
+
+
   timers["reading"].start();
-  SigprocFilterbank filobj(filename);
+  SigprocFilterbank filobj(filename, args.start_sample, args.nsamples);
   timers["reading"].stop();
 
   if (args.progress_bar){
     printf("Complete (execution time %.2f s)\n",timers["reading"].getTime());
   }
+  unsigned int size =  Utils::prev_power_of_two(filobj.get_effective_nsamps()); // By this time  fft size = effective nsamps in the default case. 
+  if (args.verbose)
+    std::cout << "Setting transform length to " << size << " points" << std::endl;
+
 
   DMDistiller dm_still(args.freq_tol,true);
   HarmonicDistiller harm_still(args.freq_tol,args.max_harm,true,false);
   CandidateCollection dm_cands;
 
-  unsigned int size;
-  if (args.size==0)
-    size = Utils::prev_power_of_two(filobj.get_nsamps());
-  else
-    //size = std::min(args.size,filobj.get_nsamps());
-    size = args.size;
-  if (args.verbose)
-    std::cout << "Setting transform length to " << size << " points" << std::endl;
+
 
   AccelerationPlan acc_plan(
     args.acc_start, // m/s^2
@@ -414,7 +416,7 @@ int main(int argc, char **argv)
   }
 
   float nbytes = args.host_ram_limit_gb * 1e9;
-  std::size_t ndm_trial_gulp = std::size_t(nbytes / (filobj.get_nsamps() * sizeof(float)));
+  std::size_t ndm_trial_gulp = std::size_t(nbytes / (filobj.get_effective_nsamps() * sizeof(float)));
   if (ndm_trial_gulp == 0)
   {
     throw std::runtime_error("Insufficient RAM specified to allow for dedispersion");
@@ -455,12 +457,15 @@ int main(int argc, char **argv)
 
     std::size_t gulp_size;
     if (args.dedisp_gulp == -1){
-      gulp_size = filobj.get_nsamps();
+      gulp_size = filobj.get_effective_nsamps();
     } else {
       gulp_size = args.dedisp_gulp;
     }
-
-    dedisperser.dedisperse(trials, 0, filobj.get_nsamps(), gulp_size);
+    if(args.verbose){
+      std::cout<< "Starting to dedisperse filterbank from Sample#" << filobj.get_start_sample() 
+            << " for " << filobj.get_effective_nsamps() << " samples, with gulp size of " << gulp_size << " samples" << std::endl;
+    }
+    dedisperser.dedisperse(trials, filobj.get_start_sample(), filobj.get_effective_nsamps(), gulp_size);
     POP_NVTX_RANGE
     timers["dedispersion"].stop();
 
@@ -540,6 +545,7 @@ int main(int argc, char **argv)
   stats.add_misc_info();
   stats.add_header(filename);
   stats.add_search_parameters(args);
+  stats.add_segment_parameters(filobj);
   stats.add_dm_list(full_dm_list);
 
   std::vector<float> acc_list;
