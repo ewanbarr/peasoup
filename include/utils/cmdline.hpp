@@ -33,6 +33,8 @@ struct CmdLineOptions {
   float freq_tol;
   bool verbose;
   bool progress_bar;
+  long  start_sample;
+  long nsamples;
 };
 
 struct FFACmdLineOptions {
@@ -186,6 +188,14 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
 
       TCLAP::SwitchArg arg_progress_bar("p", "progress_bar", "Enable progress bar for DM search", cmd);
 
+      TCLAP::ValueArg<unsigned int> arg_start_sample("", "start_sample",
+						 "Start from this sample",
+						 false, 0, "long", cmd);  
+
+      TCLAP::ValueArg<unsigned int> arg_nsamples("", "nsamples",
+						 "Only take this many samples from start sample. Default: Until EOF",
+						 false, 0, "long", cmd);        
+
       cmd.parse(argc, argv);
       args.infilename        = arg_infilename.getValue();
       args.outdir            = arg_outdir.getValue();
@@ -216,6 +226,8 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
       args.freq_tol          = arg_freq_tol.getValue();
       args.verbose           = arg_verbose.getValue();
       args.progress_bar      = arg_progress_bar.getValue();
+      args.start_sample      = arg_start_sample.getValue();
+      args.nsamples           = arg_nsamples.getValue();
 
     }catch (TCLAP::ArgException &e) {
     std::cerr << "Error: " << e.error() << " for arg " << e.argId()
@@ -252,6 +264,8 @@ bool read_ffa_cmdline_options(FFACmdLineOptions& args, int argc, char **argv)
 						 "The number of CUDA streams to use",
 						 false, 16, "unsigned int", cmd);
 
+           
+
       /*TCLAP::ValueArg<float> arg_dm_start("", "dm_start",
                                           "First DM to dedisperse to",
                                           false, 0.0, "float", cmd);
@@ -279,6 +293,7 @@ bool read_ffa_cmdline_options(FFACmdLineOptions& args, int argc, char **argv)
       TCLAP::ValueArg<float> arg_min_dc("", "min_dc",
 					"Minimum duty cycle",
 					false, 0.001, "float (fraction)",cmd);
+                       
 
       TCLAP::SwitchArg arg_verbose("v", "verbose", "verbose mode", cmd);
 
