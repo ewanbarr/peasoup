@@ -37,7 +37,7 @@ public:
     POP_NVTX_RANGE
       }
   
-  ~HarmonicFolder()
+  virtual ~HarmonicFolder()
   {
     Utils::device_free(d_data_ptrs);
     Utils::host_free(h_data_ptrs);

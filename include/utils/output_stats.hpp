@@ -70,6 +70,14 @@ public:
     root.append(header);
   }
 
+  void add_segment_parameters(SigprocFilterbank& f){
+    XML::Element segment_parameters("segment_parameters");
+    segment_parameters.append(XML::Element("segment_start_sample", f.get_start_sample()));
+    segment_parameters.append(XML::Element("segment_nsamples", f.get_effective_nsamps()));
+    segment_parameters.append(XML::Element("segment_pepoch", f.get_segment_pepoch()));
+    root.append(segment_parameters);
+  }
+
   void add_search_parameters(CmdLineOptions& args){
     XML::Element search_options("search_parameters");
     search_options.append(XML::Element("infilename",args.infilename));
@@ -78,6 +86,7 @@ public:
     search_options.append(XML::Element("zapfilename",args.zapfilename));
     search_options.append(XML::Element("max_num_threads",args.max_num_threads));
     search_options.append(XML::Element("size",args.size));
+    search_options.append(XML::Element("dmfilename",args.dm_file));
     search_options.append(XML::Element("dm_start",args.dm_start));
     search_options.append(XML::Element("dm_end",args.dm_end));
     search_options.append(XML::Element("dm_tol",args.dm_tol));
@@ -104,7 +113,6 @@ public:
     XML::Element info("misc_info");
     char buf[128];
     getlogin_r(buf,128);
-    info.append(XML::Element("username",buf));
     std::time_t t = std::time(NULL);
     std::strftime(buf, 128, "%Y-%m-%d-%H:%M", std::localtime(&t));
     info.append(XML::Element("local_datetime",buf));
