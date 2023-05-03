@@ -133,6 +133,15 @@ public:
     TimeDomainResampler resampler;
     DevicePowerSpectrum<float> pspec(d_fseries);
     Zapper* bzap;
+    // If filterbank file is coherently dedispersed at a non-zero value
+    float cdm = args.cdm;
+    if (args.verbose)
+        if (cdm != 0.0)
+	        std::cout << "Filterbank file is coherently dedispersed at DM: " << args.cdm << ". Will adjust acceleration trial step size accordingly. " << std::endl; 
+        else
+            std::cout << "Filterbank file is not coherently dedispersed. " << std::endl;
+        
+    
     if (args.zapfilename!=""){
       if (args.verbose)
 	      std::cout << "Using zapfile: " << args.zapfilename << std::endl;
@@ -184,10 +193,10 @@ public:
             }
 	    //padding_mean = stats::mean<float>(d_tim.get_data(),trials.get_nsamps());
       }
-
+      
       if (args.verbose)
 	    std::cout << "Generating accelration list" << std::endl;
-      acc_plan.generate_accel_list(tim.get_dm(),acc_list);
+      acc_plan.generate_accel_list(tim.get_dm(), cdm, acc_list);
 
       if (args.verbose)
 	    std::cout << "Searching "<< acc_list.size()<< " acceleration trials for DM "<< tim.get_dm() << std::endl;
@@ -543,8 +552,11 @@ int main(int argc, char **argv)
   stats.add_dm_list(full_dm_list);
 
   std::vector<float> acc_list;
-  acc_plan.generate_accel_list(0.0,acc_list);
-  stats.add_acc_list(acc_list);
+  // If filterbank file is coherently dedispersed at a non-zero value
+  float cdm = args.cdm;
+  //acc_plan.generate_accel_list(0.0,cdm,acc_list);
+  acc_plan.generate_accel_list(cdm, cdm, acc_list);
+  stats.add_acc_list(cdm, acc_list);
 
   std::vector<int> device_idxs;
   for (int device_idx=0;device_idx<nthreads;device_idx++)
