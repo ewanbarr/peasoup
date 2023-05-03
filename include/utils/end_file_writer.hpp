@@ -63,6 +63,7 @@ public:
     search_options.append(XML::Element("size",args.size));
     search_options.append(XML::Element("dm_start",args.dm_start));
     search_options.append(XML::Element("dm_end",args.dm_end));
+    search_options.append(XML::Element("cdm",args.cdm));
     search_options.append(XML::Element("dm_tol",args.dm_tol));
     search_options.append(XML::Element("dm_pulse_width",args.dm_pulse_width));
     search_options.append(XML::Element("acc_start",args.acc_start));

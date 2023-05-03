@@ -12,6 +12,7 @@ struct CmdLineOptions {
   unsigned int size;
   float dm_start;
   float dm_end;
+  float cdm;
   float dm_tol;
   float dm_pulse_width;
   std::string dm_file;
@@ -114,6 +115,10 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
                                         "Last DM to dedisperse to",
                                         false, 0.0, "float", cmd);
 
+      TCLAP::ValueArg<float> arg_cdm("", "cdm",
+                                        "Coherently Dedispersed DM",
+                                        false, 0.0, "float", cmd);
+
       TCLAP::ValueArg<float> arg_dm_tol("", "dm_tol",
                                         "DM smearing tolerance (1.11=10%)",
                                         false, 1.11, "float",cmd);
@@ -196,7 +201,8 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
       args.size              = arg_size.getValue();
       args.dm_file           = arg_dm_file.getValue();
       args.dm_end            = arg_dm_end.getValue();
-      args.dm_start            = arg_dm_start.getValue();
+      args.cdm               = arg_cdm.getValue();
+      args.dm_start          = arg_dm_start.getValue();
       args.dm_tol            = arg_dm_tol.getValue();
       args.dm_pulse_width    = arg_dm_pulse_width.getValue();
       args.host_ram_limit_gb = arg_host_ram_limit_gb.getValue();
