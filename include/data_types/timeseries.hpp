@@ -113,7 +113,8 @@ public:
 
     \param Number of samples in timeseries.
   */
-  void set_nsamps(std::size_t nsamps){this->nsamps = nsamps;}
+  void set_nsamps(std::size_t nsamps){
+    this->nsamps = nsamps;}
 
   /*!
     \brief Get sampling time.
@@ -387,7 +388,7 @@ protected:
     \param count Number of timeseries.
   */
   TimeSeriesContainer(float tsamp)
-    :tsamp(tsamp){}
+    :tsamp(tsamp),nsamps(0),count(0){}
 
 public:
   /*!
@@ -404,7 +405,10 @@ public:
   std::size_t get_nsamps(void){return nsamps;}
 
 
-  void set_nsamps(std::size_t nsamps_in){ nsamps = nsamps_in;}
+  void set_nsamps(std::size_t nsamps_in){ 
+    std::cout << "Vivek test " << nsamps_in << std::endl;
+    nsamps = nsamps_in;
+    }
 
 
   /*!
@@ -493,8 +497,11 @@ public:
     \note This function is implemented as an alternative to the
     overloaded [] operator.
   */
-  void get_idx(std::size_t idx, DedispersedTimeSeries<T>& tim){
+  void get_idx(std::size_t idx, DedispersedTimeSeries<T>& tim, std::size_t effective_nsamps){
     T* ptr = this->get_data_ptr() + (size_t)idx*(size_t)this->nsamps;
+    printf("effective_nsamps: %lu\n", effective_nsamps);
+    printf("nsamps: %lu\n", this->nsamps);
+
     tim.set_data(ptr);
     tim.set_dm(dm_list[idx]);
     tim.set_nsamps(this->nsamps);

@@ -125,11 +125,11 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
                                                 false, 64.0, "float (us)",cmd);
 
       TCLAP::ValueArg<float> arg_host_ram_limit_gb("", "ram_limit_gb",
-                                                "The maximum host RAM to be used during processing (affects the number of file reads to be made during dedispersion)",
+                                                "The maximum host RAM to be used during processing. Default: 20GB (affects the number of file reads to be made during dedispersion)",
                                                 false, 20.0, "float", cmd);
 
       TCLAP::ValueArg<int> arg_dedisp_gulp("", "dedisp_gulp",
-                                                "Number of samples to read at a time during dedispersion, default: all",
+                                                "Number of samples to read at a time during dedispersion, default: 1 million",
                                                 false, 1e6, "int", cmd);
 
       TCLAP::ValueArg<float> arg_acc_start("", "acc_start",
