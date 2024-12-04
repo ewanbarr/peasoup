@@ -499,9 +499,6 @@ public:
   */
   void get_idx(std::size_t idx, DedispersedTimeSeries<T>& tim, std::size_t effective_nsamps){
     T* ptr = this->get_data_ptr() + (size_t)idx*(size_t)this->nsamps;
-    printf("effective_nsamps: %lu\n", effective_nsamps);
-    printf("nsamps: %lu\n", this->nsamps);
-
     tim.set_data(ptr);
     tim.set_dm(dm_list[idx]);
     tim.set_nsamps(this->nsamps);

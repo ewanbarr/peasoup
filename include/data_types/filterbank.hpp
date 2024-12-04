@@ -332,7 +332,6 @@ public:
     double start_time = this->start_sample * this->tsamp / 86400.0;
     double end_time = this->size  * this->tsamp / 86400.0;
     double tstart_updated =  this->_header.tstart + start_time;
-    printf("tstart_updated: %f\n", tstart_updated);
     
     //if start sample > 0 tstart has been updated, so get middle of observation.
     return tstart_updated + 0.5 * end_time;

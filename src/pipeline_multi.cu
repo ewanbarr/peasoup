@@ -489,10 +489,6 @@ int main(int argc, char **argv)
     POP_NVTX_RANGE
     //trials.set_nsamps(size);
     timers["dedispersion"].stop();
-    std::cout << "Trials after dedispersion: " << trials.get_nsamps() << std::endl;
-
-
-   
     if (args.progress_bar)
       printf("Complete (execution time %.2f s)\n",timers["dedispersion"].getTime());
 
