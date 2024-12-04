@@ -186,7 +186,7 @@ public:
 
       if (args.verbose)
 	    std::cout << "Generating accelration list" << std::endl;
-      acc_plan.generate_accel_list(tim.get_dm(),acc_list);
+      acc_plan.generate_accel_list(tim.get_dm(), args.cdm, acc_list);
 
       if (args.verbose)
 	    std::cout << "Searching "<< acc_list.size()<< " acceleration trials for DM "<< tim.get_dm() << std::endl;
@@ -365,15 +365,6 @@ int main(int argc, char **argv)
   //Stopwatch timer;
   if (args.progress_bar)
     printf("Reading header from %s\n",args.infilename.c_str());
-
- // 2**26 - 2 -> Obs
-  //0 -> 2**25
-  //args.size -> 0, args.size
-//   Two scenarios: 
-//   args.size = user 
-//   args.size = previous power of 2 (nsamples of filterbank)
-
-
 
 
   if (args.nsamples > 0 && args.size > 0 && args.nsamples > args.size) ErrorChecker::throw_error("nsamples cannot be > fft size.");
@@ -569,8 +560,8 @@ int main(int argc, char **argv)
   stats.add_dm_list(full_dm_list);
 
   std::vector<float> acc_list;
-  acc_plan.generate_accel_list(0.0,acc_list);
-  stats.add_acc_list(acc_list);
+  acc_plan.generate_accel_list(args.cdm, args.cdm, acc_list);
+  stats.add_acc_list(acc_list, args.cdm);
 
   std::vector<int> device_idxs;
   for (int device_idx=0;device_idx<nthreads;device_idx++)

@@ -87,6 +87,7 @@ public:
     search_options.append(XML::Element("max_num_threads",args.max_num_threads));
     search_options.append(XML::Element("size",args.size));
     search_options.append(XML::Element("dmfilename",args.dm_file));
+    search_options.append(XML::Element("cdm",args.cdm));
     search_options.append(XML::Element("dm_start",args.dm_start));
     search_options.append(XML::Element("dm_end",args.dm_end));
     search_options.append(XML::Element("dm_tol",args.dm_tol));
@@ -161,10 +162,10 @@ public:
     root.append(dm_trials);
   }
   
-  void add_acc_list(std::vector<float>& accs){
+  void add_acc_list(std::vector<float>& accs, float cdm){
     XML::Element acc_trials("acceleration_trials");
     acc_trials.add_attribute("count",accs.size());
-    acc_trials.add_attribute("DM",0);
+    acc_trials.add_attribute("DM",cdm);
     for(int ii=0;ii<accs.size();ii++){
       XML::Element trial("trial");
       trial.add_attribute("id",ii);

@@ -158,7 +158,7 @@ public:
   {
   }
 
-  float dispersive_smear(float dm) const
+  float dispersive_smear(float dm, float cdm) const
   /*
    * Return the dispersive smear in seconds
    */
@@ -166,26 +166,27 @@ public:
     // Frequencies need to be converted to GHz
     float ftop = (cfreq + ch_bw/2) / 1e9;
     float fbottom = (cfreq - ch_bw/2) / 1e9;
-    return 4.15e-3 * (1/(fbottom * fbottom) - 1/(ftop * ftop)) * dm;
+    float dm_diff = std::abs(cdm - dm);
+    return 4.15e-3 * (1/(fbottom * fbottom) - 1/(ftop * ftop)) * dm_diff;
   }
 
-  float pulse_broadening(float dm) const
+  float pulse_broadening(float dm, float cdm) const
   /*
    * Return the pulse broadinging for a given dm in seconds
    */
   {
-    float tdm = this->dispersive_smear(dm);
+    float tdm = this->dispersive_smear(dm, cdm);
     //cout << "Dispersive smear (s): " << tdm << "\n";
     return sqrt((tdm * tdm) + (pulse_width * pulse_width) + (tsamp * tsamp));
   }
 
-  float accel_step(float dm) const
+  float accel_step(float dm, float cdm) const
   /*
    * Return the optimal acceleration step in m/s/s
    */
 
   {
-    float broadening = this->pulse_broadening(dm);
+    float broadening = this->pulse_broadening(dm, cdm);
     //cout << "Total broadening (s): " << broadening << "\n";
     float factor = sqrt((tol * tol) - 1.0);
     float tobs = nsamps * tsamp;
@@ -194,6 +195,7 @@ public:
 
   void generate_accel_list(
     float dm,
+    float cdm,
     std::vector<float>& acc_list) const
   /*
    * Return the acceleration list for the
@@ -211,7 +213,7 @@ public:
       acc_list.push_back(0.0f);
     }
 
-    float step = this->accel_step(dm);
+    float step = this->accel_step(dm, cdm);
     //cout << "Acceleration step (m/s/s): " << step << "\n";
     float acc = acc_lo;
     while (acc <= acc_hi)
