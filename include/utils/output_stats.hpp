@@ -13,6 +13,9 @@
 #include <utils/stopwatch.hpp>
 #include <data_types/header.hpp>
 #include "cuda.h"
+#include <iomanip> // for std::setprecision
+#include <sstream> // for std::stringstream
+
 
 class OutputFileWriter {
   XML::Element root;
@@ -24,6 +27,12 @@ public:
   std::string to_string(void){
     return root.to_string(true);
   }
+
+  std::string format_float_to_precision(float value, int precision) {
+    std::stringstream stream;
+    stream << std::fixed << std::setprecision(precision) << value;
+    return stream.str();
+}
 
   void to_file(std::string filename){
     std::ofstream outfile;
@@ -87,7 +96,7 @@ public:
     search_options.append(XML::Element("max_num_threads",args.max_num_threads));
     search_options.append(XML::Element("size",args.size));
     search_options.append(XML::Element("dmfilename",args.dm_file));
-    search_options.append(XML::Element("cdm",args.cdm));
+    search_options.append(XML::Element("cdm",format_float_to_precision(args.cdm, 4)));
     search_options.append(XML::Element("dm_start",args.dm_start));
     search_options.append(XML::Element("dm_end",args.dm_end));
     search_options.append(XML::Element("dm_tol",args.dm_tol));
@@ -152,20 +161,26 @@ public:
   
   void add_dm_list(std::vector<float>& dms){
     XML::Element dm_trials("dedispersion_trials");
-    dm_trials.add_attribute("count",dms.size());
-    for (int ii=0;ii<dms.size();ii++){
-      XML::Element trial("trial");
-      trial.add_attribute("id",ii);
-      trial.set_text(dms[ii]);
-      dm_trials.append(trial);
+    dm_trials.add_attribute("count", dms.size());
+    for (int ii = 0; ii < dms.size(); ii++) {
+        XML::Element trial("trial");
+        trial.add_attribute("id", ii);
+        
+        // Format the DM value to 4 decimal places
+        std::stringstream formatted_value;
+        formatted_value << std::fixed << std::setprecision(4) << dms[ii];
+        
+        // Set the formatted string as the text for the XML element
+        trial.set_text(formatted_value.str());
+        dm_trials.append(trial);
     }
     root.append(dm_trials);
-  }
+}
   
   void add_acc_list(std::vector<float>& accs, float cdm){
     XML::Element acc_trials("acceleration_trials");
     acc_trials.add_attribute("count",accs.size());
-    acc_trials.add_attribute("DM",cdm);
+    acc_trials.add_attribute("DM", format_float_to_precision(cdm, 4));
     for(int ii=0;ii<accs.size();ii++){
       XML::Element trial("trial");
       trial.add_attribute("id",ii);
