@@ -13,7 +13,7 @@ OPTIMISE = -O3
 DEBUG    = 
 
 # Includes and libraries
-INCLUDE  = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I${DEDISP_DIR}/include -I${CUDA_DIR}/include -I./tclap
+INCLUDE  = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I${DEDISP_DIR}/include -I${CUDA_DIR}/include/nvtx3 -I./tclap
 LIBS = -L$(CUDA_DIR)/lib64 -lcudart -L${DEDISP_DIR}/lib -ldedisp -lcufft -lpthread -lnvToolsExt
 
 FFASTER_DIR = /mnt/home/ebarr/Soft/FFAster
@@ -21,9 +21,9 @@ FFASTER_INCLUDES = -I${FFASTER_DIR}/include -L${FFASTER_DIR}/lib -lffaster
 
 # compiler flags
 # --compiler-options -Wall
-NVCC_COMP_FLAGS = 
+NVCC_COMP_FLAGS = -gencode arch=compute_89,code=sm_89 
 NVCC_FFA_COMP_FLAGS = 
-NVCCFLAGS  = ${UCFLAGS} ${OPTIMISE} ${NVCC_COMP_FLAGS} -lineinfo --machine 64 -Xcompiler ${DEBUG}
+NVCCFLAGS  = ${UCFLAGS} ${OPTIMISE} ${NVCC_COMP_FLAGS} -lineinfo --machine 64 
 NVCCFLAGS_FFA  = ${UCFLAGS} ${OPTIMISE} ${NVCC_FFA_COMP_FLAGS} -lineinfo --machine 64 -Xcompiler ${DEBUG}
 CFLAGS    = ${UCFLAGS} -fPIC ${OPTIMISE} ${DEBUG}
 
