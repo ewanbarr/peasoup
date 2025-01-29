@@ -26,7 +26,6 @@ WORKDIR /software/
 
 RUN git clone https://github.com/vishnubk/dedisp.git && \
     cd dedisp && \
-    git checkout sm_89 && \
     make -j 32 && \
     make install
 
