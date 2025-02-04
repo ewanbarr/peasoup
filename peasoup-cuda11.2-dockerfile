@@ -19,7 +19,8 @@ RUN apt update -y && \
     emacs \
     zlib1g-dev \
     g++ \
-    uuid-runtime 
+    uuid-runtime \
+    valgrind
 
 
 WORKDIR /software/
