@@ -9,7 +9,7 @@ SRC_DIR  = ./src
 INCLUDE_DIR = ./include
 
 # Compiler flags
-OPTIMISE = -O3
+OPTIMISE = 
 DEBUG    =
 
 # Includes and libraries
