@@ -1,6 +1,6 @@
 include Makefile.inc
 
-# Output directories                                                                                                                        
+# Output directories
 BIN_DIR     = ./bin
 OBJ_DIR     = ./obj
 
@@ -10,7 +10,7 @@ INCLUDE_DIR = ./include
 
 # Compiler flags
 OPTIMISE = -O3
-DEBUG    = 
+DEBUG    =
 
 # Includes and libraries
 INCLUDE  = -I$(INCLUDE_DIR) -I$(THRUST_DIR) -I${DEDISP_DIR}/include -I${CUDA_DIR}/include/nvtx3 -I./tclap
@@ -19,16 +19,14 @@ LIBS = -L$(CUDA_DIR)/lib64 -lcudart -L${DEDISP_DIR}/lib -ldedisp -lcufft -lpthre
 FFASTER_DIR = /mnt/home/ebarr/Soft/FFAster
 FFASTER_INCLUDES = -I${FFASTER_DIR}/include -L${FFASTER_DIR}/lib -lffaster
 
-# compiler flags
-#Edit the following line to include the correct architecture for your GPU
-NVCC_COMP_FLAGS = -gencode arch=compute_60,code=sm_60 -gencode arch=compute_61,code=sm_61 -gencode arch=compute_75,code=sm_75 -gencode arch=compute_86,code=sm_86 -gencode arch=compute_89,code=sm_89
-NVCC_FFA_COMP_FLAGS = 
-NVCCFLAGS  = ${UCFLAGS} ${OPTIMISE} ${NVCC_COMP_FLAGS} -lineinfo --machine 64 
-NVCCFLAGS_FFA  = ${UCFLAGS} ${OPTIMISE} ${NVCC_FFA_COMP_FLAGS} -lineinfo --machine 64 -Xcompiler ${DEBUG}
+# Compiler flags (Uses dynamically set GPU_ARCH_FLAG)
+NVCCFLAGS  = ${UCFLAGS} ${OPTIMISE} ${GPU_ARCH_FLAG} -lineinfo --machine 64
+NVCCFLAGS_FFA  = ${UCFLAGS} ${OPTIMISE} -lineinfo --machine 64 -Xcompiler ${DEBUG}
+
 CFLAGS    = ${UCFLAGS} -fPIC ${OPTIMISE} ${DEBUG}
 
 OBJECTS   = ${OBJ_DIR}/kernels.o
-EXE_FILES = ${BIN_DIR}/peasoup #${BIN_DIR}/resampling_test ${BIN_DIR}/harmonic_sum_test
+EXE_FILES = ${BIN_DIR}/peasoup
 
 all: directories ${OBJECTS} ${EXE_FILES}
 
@@ -41,33 +39,6 @@ ${BIN_DIR}/peasoup: ${SRC_DIR}/pipeline_multi.cu ${OBJECTS}
 ${BIN_DIR}/ffaster: ${SRC_DIR}/ffa_pipeline.cu ${OBJECTS}
 	${NVCC} ${NVCCFLAGS_FFA} ${INCLUDE} ${FFASTER_INCLUDES} ${LIBS} $^ -o $@
 
-${BIN_DIR}/harmonic_sum_test: ${SRC_DIR}/harmonic_sum_test.cpp ${OBJECTS}
-	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
-
-${BIN_DIR}/resampling_test: ${SRC_DIR}/resampling_test.cpp ${OBJECTS}
-	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
-
-${BIN_DIR}/specform_test: ${SRC_DIR}/specform_test.cpp ${OBJECTS}
-	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
-
-${BIN_DIR}/coincidencer: ${SRC_DIR}/coincidencer.cpp ${OBJECTS}
-	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
-
-${BIN_DIR}/accmap: ${SRC_DIR}/accmap.cpp ${OBJECTS}
-	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
-
-${BIN_DIR}/rednoise: ${SRC_DIR}/rednoise_test.cpp ${OBJECTS}
-	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
-
-${BIN_DIR}/hcfft: ${SRC_DIR}/hcfft.cpp ${OBJECTS}
-	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
-
-${BIN_DIR}/folder_test: ${SRC_DIR}/folder_test.cpp ${OBJECTS}
-	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
-
-${BIN_DIR}/dedisp_test: ${SRC_DIR}/dedisp_test.cpp ${OBJECTS}
-	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@ 
-
 directories:
 	@mkdir -p ${BIN_DIR}
 	@mkdir -p ${OBJ_DIR}
@@ -77,3 +48,4 @@ clean:
 
 install: all
 	cp $(BIN_DIR)/peasoup $(INSTALL_DIR)/bin
+
