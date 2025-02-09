@@ -19,8 +19,15 @@ RUN apt update -y && \
     emacs \
     zlib1g-dev \
     g++ \
-    uuid-runtime 
+    uuid-runtime \
+    python3 \
+    python3-pip \
+    python-is-python3 && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
 
+# Install NumPy
+RUN pip3 install --no-cache-dir numpy
 
 WORKDIR /software/
 
@@ -36,3 +43,4 @@ RUN git clone https://github.com/vishnubk/peasoup.git && \
 
 # Update the dynamic linker run-time bindings
 RUN ldconfig /usr/local/lib
+
