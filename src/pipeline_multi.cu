@@ -518,8 +518,6 @@ int main(int argc, char **argv)
   if (args.verbose)
     std::cout << "Distilling DMs" << std::endl;
   
-  //print candidates
-  dm_cands.write_candidate_file("./cands.txt");
   dm_cands.cands = dm_still.distill(dm_cands.cands);
   dm_cands.cands = harm_still.distill(dm_cands.cands);
 
@@ -530,21 +528,8 @@ int main(int argc, char **argv)
   if (args.verbose)
     std::cout << "Setting up time series folder" << std::endl;
 
-  // MultiFolder folder(dm_cands.cands,trials);
-  // timers["folding"].start();
-  // if (args.progress_bar)
-  //   folder.enable_progress_bar();
-
-  // if (args.npdmp > 0){
-  //   if (args.verbose)
-  //     std::cout << "Folding top "<< args.npdmp <<" cands" << std::endl;
-  //   folder.fold_n(args.npdmp);
-  // }
-  // timers["folding"].stop();
-
   if (args.verbose)
     std::cout << "Writing output files" << std::endl;
-  //dm_cands.write_candidate_file("./old_cands.txt");
 
   int new_size = std::min(args.limit,(int) dm_cands.cands.size());
   dm_cands.cands.resize(new_size);
