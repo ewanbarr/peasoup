@@ -26,32 +26,21 @@ GPU_ARCH_FLAG =
 
 ifeq ($(CUDA_VERSION),)
     $(warning "CUDA version not detected, using default compute capabilities")
-    GPU_ARCH_FLAG = -gencode arch=compute_60,code=sm_60 -gencode arch=compute_61,code=sm_61  -gencode arch=compute_75,code=sm_75
+    GPU_ARCH_FLAG = -gencode arch=compute_60,code=sm_60 -gencode arch=compute_61,code=sm_61  -gencode arch=compute_75,code=sm_75 -gencode arch=compute_80,code=sm_80
 else
     CUDA_MAJOR = $(shell echo $(CUDA_VERSION) | cut -d'.' -f1)
-    CUDA_MINOR = $(shell echo $(CUDA_VERSION) | cut -d'.' -f2)
 
     # Convert to integers
     CUDA_MAJOR_INT = $(shell expr $(CUDA_MAJOR) + 0)
-    CUDA_MINOR_INT = $(shell expr $(CUDA_MINOR) + 0)
 
     ifneq ($(shell test $(CUDA_MAJOR_INT) -ge 10; echo $$?), 1)
         GPU_ARCH_FLAG += -gencode arch=compute_60,code=sm_60 -gencode arch=compute_61,code=sm_61 -gencode arch=compute_70,code=sm_70
     endif
     ifneq ($(shell test $(CUDA_MAJOR_INT) -ge 11; echo $$?), 1)
-        GPU_ARCH_FLAG += -gencode arch=compute_75,code=sm_75
-    endif
-    ifneq ($(shell test $(CUDA_MAJOR_INT) -eq 11 -a $(CUDA_MINOR_INT) -ge 2; echo $$?), 1)
-        GPU_ARCH_FLAG += -gencode arch=compute_80,code=sm_80
-    endif
-    ifneq ($(shell test $(CUDA_MAJOR_INT) -eq 11 -a $(CUDA_MINOR_INT) -ge 8; echo $$?), 1)
-        GPU_ARCH_FLAG += -gencode arch=compute_86,code=sm_86
+        GPU_ARCH_FLAG += -gencode arch=compute_75,code=sm_75 -gencode arch=compute_80,code=sm_80 -gencode arch=compute_86,code=sm_86
     endif
     ifneq ($(shell test $(CUDA_MAJOR_INT) -ge 12; echo $$?), 1)
-        GPU_ARCH_FLAG += -gencode arch=compute_89,code=sm_89
-    endif
-    ifneq ($(shell test $(CUDA_MAJOR_INT) -eq 12 -a $(CUDA_MINOR_INT) -ge 2; echo $$?), 1)
-        GPU_ARCH_FLAG += -gencode arch=compute_90,code=sm_90
+        GPU_ARCH_FLAG += -gencode arch=compute_89,code=sm_89 -gencode arch=compute_90,code=sm_90
     endif
 endif
 
