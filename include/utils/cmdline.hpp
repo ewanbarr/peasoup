@@ -10,6 +10,7 @@ struct CmdLineOptions {
   std::string zapfilename;
   int max_num_threads;
   unsigned int size;
+  float cdm;
   float dm_start;
   float dm_end;
   float dm_tol;
@@ -108,6 +109,9 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
       TCLAP::ValueArg<std::string> arg_dm_file("", "dm_file",
                                           "filename with dm list",
                                           false, "none", "string", cmd);
+      TCLAP::ValueArg<float> arg_cdm("", "cdm",
+                                          "Coherent DM of filterbank file",
+                                          false, 0.0, "float", cmd);
       TCLAP::ValueArg<float> arg_dm_start("", "dm_start",
                                           "First DM to dedisperse to",
                                           false, 0.0, "float", cmd);
@@ -125,11 +129,11 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
                                                 false, 64.0, "float (us)",cmd);
 
       TCLAP::ValueArg<float> arg_host_ram_limit_gb("", "ram_limit_gb",
-                                                "The maximum host RAM to be used during processing (affects the number of file reads to be made during dedispersion)",
+                                                "The maximum host RAM to be used during processing. Default: 20GB (affects the number of file reads to be made during dedispersion)",
                                                 false, 20.0, "float", cmd);
 
       TCLAP::ValueArg<int> arg_dedisp_gulp("", "dedisp_gulp",
-                                                "Number of samples to read at a time during dedispersion, default: all",
+                                                "Number of samples to read at a time during dedispersion, default: 1 million",
                                                 false, 1e6, "int", cmd);
 
       TCLAP::ValueArg<float> arg_acc_start("", "acc_start",
@@ -205,6 +209,7 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
       args.limit             = arg_limit.getValue();
       args.size              = arg_size.getValue();
       args.dm_file           = arg_dm_file.getValue();
+      args.cdm               = arg_cdm.getValue();
       args.dm_end            = arg_dm_end.getValue();
       args.dm_start            = arg_dm_start.getValue();
       args.dm_tol            = arg_dm_tol.getValue();

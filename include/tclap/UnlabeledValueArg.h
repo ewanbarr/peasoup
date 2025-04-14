@@ -334,7 +334,8 @@ bool UnlabeledValueArg<T>::operator==(const Arg& a ) const
 template<class T>
 void UnlabeledValueArg<T>::addToList( std::list<Arg*>& argList ) const
 {
-	argList.push_back( const_cast<Arg*>(static_cast<const Arg* const>(this)) );
+    argList.push_back( const_cast<Arg*>(static_cast<const Arg*>(this)) );
+
 }
 
 }

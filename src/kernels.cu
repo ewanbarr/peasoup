@@ -454,7 +454,7 @@ float GPU_mean(T* d_collection,int nsamps, int min_bin)
   m_sum = thrust::reduce(device_ptr<T>(d_collection)+min_bin,
 			 device_ptr<T>(d_collection)+nsamps);
 
-  cudaThreadSynchronize();
+  cudaDeviceSynchronize();
   mean = float(m_sum)/float(nsamps-min_bin);
 
   return mean;

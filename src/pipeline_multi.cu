@@ -108,19 +108,16 @@ public:
 
   void start(void)
   {
-    //Generate some timer instances for benchmarking
-    //timers["get_dm_trial"]      = Stopwatch();
-    //timers["copy_to_device"] = Stopwatch();
-    //timers["rednoise"]    = Stopwatch();
-    //timers["search"]      = Stopwatch();
-
+    
     cudaSetDevice(device);
     Stopwatch pass_timer;
     pass_timer.start();
 
+
     bool padding = false;
     if (size > trials.get_nsamps())
       padding = true;
+
 
     CuFFTerR2C r2cfft(size);
     CuFFTerC2R c2rfft(size);
@@ -128,6 +125,8 @@ public:
     float bin_width = 1.0/tobs;
     DeviceFourierSeries<cufftComplex> d_fseries(size/2+1,bin_width);
     DedispersedTimeSeries<DedispOutputType> tim;
+
+   
     ReusableDeviceTimeSeries<float, DedispOutputType> d_tim(size);
     DeviceTimeSeries<float> d_tim_r(size);
     TimeDomainResampler resampler;
@@ -152,19 +151,19 @@ public:
 
 	PUSH_NVTX_RANGE("DM-Loop",0)
     while (true){
-      //timers["get_trial_dm"].start();
       ii = manager.get_dm_trial_idx();
-      //timers["get_trial_dm"].stop();
 
       if (ii==-1)
         break;
-      trials.get_idx(ii, tim);
+      //tim.set_nsamps(size);
+      trials.get_idx(ii, tim, size);
 
       if (args.verbose)
       {
           std::cout << "Copying DM trial to device (DM: " << tim.get_dm() << ")"<< std::endl;
           std::cout << "Transferring " << tim.get_nsamps() << " samples" << std::endl;
       }
+     
       //Utils::dump_host_buffer<float>(tim.get_data(), tim.get_nsamps(), "raw_timeseries_before_baseline_removal_host.dump");
       d_tim.copy_from_host(tim);
       if (args.verbose) std::cout << "Copy from host complete\n";
@@ -173,27 +172,27 @@ public:
       d_tim.remove_baseline(std::min(tim.get_nsamps(), d_tim.get_nsamps()));
       if (args.verbose) std::cout << "Baseline removed\n";
       //Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_after_baseline_removal.dump");
-
+      
       //timers["rednoise"].start()
       if (padding){
       if (args.verbose) std::cout << "Padding with zeros\n";
             if (tim.get_nsamps() >= d_tim.get_nsamps()){
                 //NOOP
             } else {
+                //The data already has zero mean, given baseline subtraction, so adding zero here is okay.
                 d_tim.fill(trials.get_nsamps(), d_tim.get_nsamps(), 0);
             }
-	    //padding_mean = stats::mean<float>(d_tim.get_data(),trials.get_nsamps());
       }
 
       if (args.verbose)
 	    std::cout << "Generating accelration list" << std::endl;
-      acc_plan.generate_accel_list(tim.get_dm(),acc_list);
+      acc_plan.generate_accel_list(tim.get_dm(), args.cdm, acc_list);
 
       if (args.verbose)
 	    std::cout << "Searching "<< acc_list.size()<< " acceleration trials for DM "<< tim.get_dm() << std::endl;
 
-      //Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_after_padding.dump");
-
+      //Utils::dump_device_buffer<float>(d_tim.get_data(), d_tim.get_nsamps(), "raw_timeseries_after_padding_beg.dump");
+     
 
       if (args.verbose)
 	    std::cout << "Executing forward FFT" << std::endl;
@@ -369,8 +368,9 @@ int main(int argc, char **argv)
 
 
   if (args.nsamples > 0 && args.size > 0 && args.nsamples > args.size) ErrorChecker::throw_error("nsamples cannot be > fft size.");
-  if (args.size > 0)  args.nsamples =  args.size;
-
+  if (args.size > 0 && args.nsamples == 0){
+     args.nsamples =  args.size;
+    }  
 
   timers["reading"].start();
   SigprocFilterbank filobj(filename, args.start_sample, args.nsamples);
@@ -379,8 +379,19 @@ int main(int argc, char **argv)
   if (args.progress_bar){
     printf("Complete (execution time %.2f s)\n",timers["reading"].getTime());
   }
-  unsigned int size =  Utils::prev_power_of_two(filobj.get_effective_nsamps()); // By this time  fft size = effective nsamps in the default case. 
+  unsigned int size;
+  if (args.size == 0){
+    size =  Utils::prev_power_of_two(filobj.get_effective_nsamps()); // By this time  fft size = effective nsamps in the default case. 
+  }
+    else {
+    size = args.size;
+  }
+  //Set for pepoch calculation later
+  filobj.size = size;
+
+
   if (args.verbose)
+    std::cout << "Effective nsamples " << filobj.get_effective_nsamps() << " points" << std::endl;
     std::cout << "Setting transform length to " << size << " points" << std::endl;
 
 
@@ -395,7 +406,7 @@ int main(int argc, char **argv)
     args.acc_end,   // m/s^2
     args.acc_tol,   // dimensionless
     args.acc_pulse_width * 1e-6, // cmd line arg is microseconds but needs to be passed as seconds
-    size, // dimensionless
+    size, // Number of samples in FFT. Set based on segment samples and power of 2.
     filobj.get_tsamp(), // seconds
     filobj.get_cfreq() * 1e6, // from header in MHz needs converted to Hz
     filobj.get_foff() * 1e6 // from header in MHz needs converted to Hz
@@ -462,17 +473,13 @@ int main(int argc, char **argv)
       gulp_size = args.dedisp_gulp;
     }
     if(args.verbose){
-      std::cout<< "Starting to dedisperse filterbank from Sample#" << filobj.get_start_sample() 
-            << " for " << filobj.get_effective_nsamps() << " samples, with gulp size of " << gulp_size << " samples" << std::endl;
+      std::cout<< "Starting to dedisperse filterbank from Sample:" << filobj.get_start_sample() 
+            << " to " << filobj.get_end_sample() << " samples, with gulp size of " << gulp_size << " samples" << std::endl;
     }
-    dedisperser.dedisperse(trials, filobj.get_start_sample(), filobj.get_effective_nsamps(), gulp_size);
+    dedisperser.dedisperse(trials, filobj.get_start_sample(), filobj.get_end_sample(), gulp_size);
     POP_NVTX_RANGE
+    //trials.set_nsamps(size);
     timers["dedispersion"].stop();
-
-    //Write out a dedispersed time series file from the dedispersion tials
-    //  unsigned int* data_ptr = trials[0].get_data();
-    //  Utils::dump_host_buffer<unsigned int>(data_ptr,trials.get_nsamps(),"dedispersed_timeseries_new");
-
     if (args.progress_bar)
       printf("Complete (execution time %.2f s)\n",timers["dedispersion"].getTime());
 
@@ -482,6 +489,7 @@ int main(int argc, char **argv)
     timers["searching"].start();
     std::vector<Worker*> workers(nthreads);
     std::vector<pthread_t> threads(nthreads);
+
     DMDispenser dispenser(trials);
     if (args.progress_bar)
       dispenser.enable_progress_bar();
@@ -509,6 +517,7 @@ int main(int argc, char **argv)
 
   if (args.verbose)
     std::cout << "Distilling DMs" << std::endl;
+  
   dm_cands.cands = dm_still.distill(dm_cands.cands);
   dm_cands.cands = harm_still.distill(dm_cands.cands);
 
@@ -519,21 +528,8 @@ int main(int argc, char **argv)
   if (args.verbose)
     std::cout << "Setting up time series folder" << std::endl;
 
-  // MultiFolder folder(dm_cands.cands,trials);
-  // timers["folding"].start();
-  // if (args.progress_bar)
-  //   folder.enable_progress_bar();
-
-  // if (args.npdmp > 0){
-  //   if (args.verbose)
-  //     std::cout << "Folding top "<< args.npdmp <<" cands" << std::endl;
-  //   folder.fold_n(args.npdmp);
-  // }
-  // timers["folding"].stop();
-
   if (args.verbose)
     std::cout << "Writing output files" << std::endl;
-  //dm_cands.write_candidate_file("./old_cands.txt");
 
   int new_size = std::min(args.limit,(int) dm_cands.cands.size());
   dm_cands.cands.resize(new_size);
@@ -549,8 +545,8 @@ int main(int argc, char **argv)
   stats.add_dm_list(full_dm_list);
 
   std::vector<float> acc_list;
-  acc_plan.generate_accel_list(0.0,acc_list);
-  stats.add_acc_list(acc_list);
+  acc_plan.generate_accel_list(args.cdm, args.cdm, acc_list);
+  stats.add_acc_list(acc_list, args.cdm);
 
   std::vector<int> device_idxs;
   for (int device_idx=0;device_idx<nthreads;device_idx++)

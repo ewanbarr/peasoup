@@ -219,7 +219,7 @@ public:
     return 0;
   }
 
-  virtual float get_segment_pepoch(){
+  virtual double get_segment_pepoch(){
     return -1;
   }
 
@@ -249,13 +249,15 @@ class SigprocFilterbank: public Filterbank {
 public:
   /*!
     \brief Create a new SigprocFilterbank object from a file.
-
+    
     Constructor opens a filterbank file reads the header and then
     reads all of the data from the filterbank file into CPU RAM.
     Metadata is set from the filterbank header values.
 
     \param filename Path to a valid sigproc filterbank file.
   */
+  unsigned int size; // Added to store args.size or computed size
+
   SigprocFilterbank(std::string filename, std::size_t segment_start_sample, std::size_t segment_nsamples)
   {
     // Open filterbank
@@ -265,8 +267,6 @@ public:
     // Read the header
     read_header(this->_filestream, this->_header);
 
-    //removing the last 1 second of data that could have different statistics (EB: eh?) (VK: double eh? commenting this out.)
-    //  this->_header.nsamples -= (std::size_t)(1.0f / this->_header.tsamp);
     this->total_nsamps = this->_header.nsamples;
     this->nchans = this->_header.nchans;
     this->tsamp = this->_header.tsamp;
@@ -275,15 +275,26 @@ public:
     this->foff  = this->_header.foff;
 
     this->start_sample = segment_start_sample;
-
-    if(segment_nsamples == 0 || segment_nsamples > this->total_nsamps) {this->end_sample = this->total_nsamps - segment_start_sample;}
-    else {this->end_sample = segment_start_sample + segment_nsamples;}
-
-
-    // if end is > start, or if start/end > total size, then 
-    if (this->end_sample < this->start_sample || this->start_sample > this->total_nsamps || this->end_sample > this->total_nsamps){
-      ErrorChecker::throw_error("Invalid start and end samples provided.");
+    size = 0; //Initialize size to 0
+    
+    
+    if (segment_start_sample > this->total_nsamps)
+    {
+      ErrorChecker::throw_error("Invalid start sample provided.");
     }
+    if (segment_nsamples == 0 || (segment_start_sample + segment_nsamples) > this->total_nsamps) {
+    std::cerr << "Warning: Requested segment exceeds total samples available in filterbank. "
+              << "Adjusting to last available sample.\n";
+    this->end_sample = this->total_nsamps;
+} else {
+    this->end_sample = segment_start_sample + segment_nsamples;
+}
+
+    printf("Segment start sample: %lu, Segment end sample: %lu\n", this->start_sample, this->end_sample);
+    // if end is > start, or if start/end > total size, then 
+    // if (this->end_sample < this->start_sample || this->start_sample > this->total_nsamps){
+    //   ErrorChecker::throw_error("Invalid start and end samples provided.");
+    // }
 
     this->effective_nsamps = this->end_sample - this->start_sample;
 
@@ -317,17 +328,15 @@ public:
 
 
 
-  float get_segment_pepoch(){
+  double get_segment_pepoch() {
+    double start_time = this->start_sample * this->tsamp / 86400.0;
+    double end_time = this->size  * this->tsamp / 86400.0;
+    double tstart_updated =  this->_header.tstart + start_time;
+    
+    //if start sample > 0 tstart has been updated, so get middle of observation.
+    return tstart_updated + 0.5 * end_time;
+}
 
-    float start_time = this->start_sample * this->tsamp/86400.0;
-
-    float end_time =  this->end_sample * this->tsamp/86400.0;
-
-    std::cout << this->_header.tstart << " " << this->start_sample << " " << this->end_sample  << " " <<this->tsamp << std::endl;
-
-    float pepoch = this->_header.tstart + 0.5 * (end_time - start_time);
-    return pepoch;
-  }
 
   /*!
     \brief Deconstruct a SigprocFilterbank object.

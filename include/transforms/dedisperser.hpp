@@ -102,111 +102,91 @@ public:
 
   }
 
-  void dedisperse(DispersionTrials<float>& trials,
-                  std::size_t start_sample, std::size_t nsamps,
-                  std::size_t gulp)
-  {
+void dedisperse(DispersionTrials<float>& trials,
+                std::size_t input_start_sample, std::size_t input_end_sample,
+                std::size_t gulp)
+{
+    // Calculate the effective number of input samples to process
+    std::size_t effective_nsamps = input_end_sample - input_start_sample;
     std::vector<float> temp_buffer;
+
+    // Get the maximum delay introduced by dedispersion
     std::size_t max_delay = dedisp_get_max_delay(plan);
-    std::cout << "Max DM delay: " << max_delay << std::endl;
+
+    // Adjust the gulp size if necessary
     if (gulp < 2 * max_delay)
     {
-      gulp = 2 * max_delay;
-      std::cerr << "WARNING: Gulp size < 2 x maximum DM delay, adjusting gulp size to "
-                << gulp << " bytes"<< std::endl;
+        gulp = 2 * max_delay;
+        std::cerr << "WARNING: Gulp size adjusted to " << gulp << " samples." << std::endl;
     }
 
-    if ((start_sample + nsamps) > filterbank.get_effective_nsamps())
-    {
-      nsamps = filterbank.get_effective_nsamps() - start_sample;
-      std::cerr << "WARNING: Number of sample requested exceeds input filterbank length "
-                << "revising from" << (start_sample + nsamps) << "to " << nsamps << " samples" << std::endl;
-    }
+    // Calculate the total number of output samples after dedispersion
+    std::size_t total_out_nsamps = effective_nsamps - max_delay;
 
-    // Calculated the total number of output samples expected
-    std::size_t total_out_nsamps = nsamps - max_delay;
-    std::cout << "Total Dedisp output samples: " << total_out_nsamps << std::endl;
-
-    // Create a complete trials object to contain all trials at full length
-
+    // Resize the trials object to hold the dedispersed data
     trials.resize(total_out_nsamps, dm_list);
 
+    // Initialize input and output sample indices
+    std::size_t input_current_sample = input_start_sample;
+    std::size_t output_current_sample = 0;
 
-    while (start_sample < total_out_nsamps)
+    while (input_current_sample < input_end_sample - max_delay)
     {
-      std::cout << "Dedispersing samples " << start_sample
-	        << " to " << start_sample + gulp << " of "
-                << total_out_nsamps << std::endl;
-      // Load a block of data from the filterbank
-      std::size_t loaded_samples = filterbank.load_gulp(start_sample, gulp);
-      if (loaded_samples == 0)
-      {
-          throw std::runtime_error("Failure on reading data during dedispersion, 0 bytes read.");
-      }
+        // Calculate the number of samples to load in this gulp
+        std::size_t samples_to_load = std::min(gulp, input_end_sample - input_current_sample);
 
-      // Calculate the expected number of output samples from a dedisp call
-      std::size_t dedisp_samples = loaded_samples - max_delay;
-      //std::cout << "Dedisp output samples from block: " << dedisp_samples << std::endl;
+        // Load the data from the filterbank
+        std::size_t loaded_samples = filterbank.load_gulp(input_current_sample, samples_to_load);
+        if (loaded_samples == 0)
+        {
+            throw std::runtime_error("Failed to read data during dedispersion, 0 samples read.");
+        }
 
-      // Calculate the actual number of samples to memcpy
-      std::size_t nsamps_to_copy;
-      if (dedisp_samples + start_sample > total_out_nsamps){
-        nsamps_to_copy = total_out_nsamps - start_sample;
-      } else {
- 	nsamps_to_copy = dedisp_samples;
-      }
-      // Resize the temporary buffer to handle the output of the next dedisp call
-      temp_buffer.resize(gulp * dm_list.size());
+        // Calculate the number of samples output by dedispersion
+        std::size_t dedisp_samples = loaded_samples - max_delay;
 
-      // Run Dedisp with output into the temporary buffer
-      //std::cout << "Calling Dedisp" << std::endl;
-      dedisp_error error = dedisp_execute(plan,
-          loaded_samples,
-          filterbank.get_data(),  //This pointer gets set in the filterband.load_gulp method
-          filterbank.get_nbits(),
-          reinterpret_cast<unsigned char*>(temp_buffer.data()),
-          32, // Float output
-          (unsigned) 0);
-      ErrorChecker::check_dedisp_error(error,"execute");
+        // Determine the number of samples to copy to the output buffer
+        std::size_t nsamps_to_copy = std::min(dedisp_samples, total_out_nsamps - output_current_sample);
 
-      // Get a pointer to the final trials data
-      std::vector<float> const& data = trials.get_data();
-      std::cout << "Trials total size: " << data.size() * sizeof(float) << " bytes" << std::endl;
-      float* ptr = reinterpret_cast<float*>(trials.get_data_ptr());
+        // Resize the temporary buffer to hold the dedispersed data
+        temp_buffer.resize(dm_list.size() * dedisp_samples);
 
-      // Loop over the trials and for each take the data from the temporary buffer
-      // and memcpy it into the correct location in the final trials object
-      std::cout << "Performing transpose/merge of Dedisp output samples" << std::endl;
+        // Execute dedispersion
+        dedisp_error error = dedisp_execute(
+            plan,
+            loaded_samples,
+            filterbank.get_data(),
+            filterbank.get_nbits(),
+            reinterpret_cast<unsigned char*>(temp_buffer.data()),
+            32, // Float output
+            0);
+        ErrorChecker::check_dedisp_error(error, "execute");
 
-      for (std::size_t trial_idx = 0; trial_idx < dm_list.size(); ++trial_idx)
-      {
-        // Calculate destination offset for trails pointer
-        //std::cout << "Trial IDx " << trial_idx << std::endl;
-        std::size_t offset = total_out_nsamps * trial_idx + start_sample;
-        //std::cout << "Offset " << offset << std::endl;
-        //std::cout << "Temp offset " << dedisp_samples * trial_idx << std::endl;
-        //std::cout << "Trials size " << trials.get_data().size() << std::endl;
-        //std::cout << "Temp size " << temp_buffer.size() << std::endl;
-        //std::cout << "nsamps to copy " << nsamps_to_copy << std::endl;
-        
-        //std::cout << "Dest offset: " << offset * sizeof(float) 
-        //          << " size: " << sizeof(float) * trials.get_count() * trials.get_nsamps()  
-        //          << " remaining: " << sizeof(float) * trials.get_count() * trials.get_nsamps() - offset * sizeof(float)
-        //          << " to_copy: " << sizeof(float) * nsamps_to_copy << std::endl;
-        
+        // Get a pointer to the trials data
+        float* ptr = reinterpret_cast<float*>(trials.get_data_ptr());
 
+        // Loop over each DM trial
+        for (std::size_t trial_idx = 0; trial_idx < dm_list.size(); ++trial_idx)
+        {
+            // Calculate the destination offset in the trials buffer
+            std::size_t dest_offset = total_out_nsamps * trial_idx + output_current_sample;
 
-        std::memcpy( reinterpret_cast<char*>(ptr + offset),
-                     reinterpret_cast<char*>(temp_buffer.data() + dedisp_samples * trial_idx),
-                     sizeof(float) * nsamps_to_copy);
-      }
+            // Calculate the source offset in the temp_buffer
+            std::size_t src_offset = dedisp_samples * trial_idx;
 
-      // Update the start_sample based on the number of samples output by dedisp
-      start_sample += dedisp_samples;
-      //std::cout << "Updating start sample to " << start_sample << std::endl;
+            // Copy the dedispersed data from temp_buffer to trials
+            std::memcpy(
+                ptr + dest_offset,
+                temp_buffer.data() + src_offset,
+                sizeof(float) * nsamps_to_copy);
+        }
+
+        // Update the input and output sample indices
+        input_current_sample += dedisp_samples;
+        output_current_sample += nsamps_to_copy;
     }
-    
-  }
+}
+
 };
 
 

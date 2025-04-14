@@ -23,7 +23,7 @@ public:
 
   virtual ~CuFFTer(){
     if(fft_plan !=0){
-      cudaThreadSynchronize();
+      cudaDeviceSynchronize();
       cufftDestroy(fft_plan);
     }
   }

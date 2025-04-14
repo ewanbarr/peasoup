@@ -124,8 +124,7 @@ private:
 
   void condition(std::vector<Candidate>& cands,int idx)
   {
-    int ii,jj,kk;
-    double ratio,freq;
+    int ii;
     double fundi_freq = cands[idx].freq;
     double fundi_acc = cands[idx].acc;
     double acc_freq;
@@ -196,22 +195,3 @@ public:
     :BaseDistiller(keep_related),tolerance(tolerance){}
 };
 
-class CandidateTester {
-private:
-  float cfreq;
-  float tsamp;
-  float foff;
-
-  float get_dm_channel_delay(float dm){
-    return dm*8300*foff/pow(cfreq,3.0);
-  }
-
-public:
-  std::vector<Candidate> remove_non_physical_periods(std::vector<Candidate>& cands){
-    std::vector<Candidate> new_cands;
-    for (int ii=0;ii<cands.size();ii++){
-      if (1.0/cands[ii].freq < get_dm_channel_delay(cands[ii].dm))
-	new_cands.push_back(cands[ii]);
-    }
-  }
-};

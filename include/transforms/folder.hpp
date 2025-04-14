@@ -367,7 +367,6 @@ private:
     float period;
     int cand_idx;
     TimeSeries<unsigned int> h_tim;
-    float mean,std,rms;
 
     if (use_progress_bar){
       printf("Folding and optimising candidates...\n");
@@ -377,7 +376,6 @@ private:
       {
 	if (use_progress_bar)
 	  progress_bar->set_progress((float)std::distance(dm_to_cand_map.begin(),iter)/dm_to_cand_map.size());
-	mean = std = rms = 0.0;
 	
 	h_tim = dm_trials[iter->first];
         device_tim.copy_from_host(h_tim);
