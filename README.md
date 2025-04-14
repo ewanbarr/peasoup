@@ -150,6 +150,6 @@ DEC: -54:31:00.216
 
 🧠 Acknowledgements
 
-Peasoup is almost entirely written by [`Ewan Barr`](https://github.com/ewanbarr) (MPIfR). With minor contributions over the years from different people, including Vivek, Prajwal, Yunpeng and Jiri. There may be a paper on this some day, but until then feel free to go and star his repo. 
+Peasoup is almost entirely written by [`Ewan Barr`](https://github.com/ewanbarr) (MPIfR). With minor contributions over the years from different people, including Vivek, Prajwal, Yunpeng and Jiri. It has already been used to discover > 200 pulsars. There may be a paper on this some day, but until then feel free to go and star his repo. 
 
 https://github.com/ewanbarr/peasoup 
