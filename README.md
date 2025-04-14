@@ -1,6 +1,6 @@
 # 🟢 Peasoup
 
-**Peasoup** is a fast, GPU-accelerated acceleration search pipeline for discovering compact binary pulsars in high time resolution radio observations. It operates on filterbank data and outputs an XML file of candidate detections. Peasoup is optimized for large-scale, high-throughput pulsar searches on modern GPU architectures. Peasoup uses the library [`dedisp`](https://github.com/vishnubk/dedisp) originally written by [`Ben Barsdell`](https://github.com/benbarsdell)  to perform dedispersion.
+**Peasoup** is a fast, GPU-accelerated acceleration search pipeline for discovering compact binary pulsars in high time resolution radio observations. It operates on filterbank data and outputs an XML file of candidate detections. Peasoup is optimized for large-scale, high-throughput pulsar searches on modern GPU architectures. It uses the library [`dedisp`](https://github.com/vishnubk/dedisp) originally written by [`Ben Barsdell`](https://github.com/benbarsdell)  to perform dedispersion.
 
 
 > ⚠️ Peasoup does **not** fold candidates. Use tools like [`psrfold_fil`](https://github.com/ypmen/PulsarX) (from PulsarX -> recommended), [`prepfold`](https://github.com/scottransom/presto) (from PRESTO), or [`dspsr`](https://dspsr.sourceforge.net/current/), to fold using candidate outputs.
