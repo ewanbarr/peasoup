@@ -17,7 +17,7 @@
   Peasoup now supports **segmented acceleration searches**, allowing you to process specific chunks of your filterbank file. You can control the search segment using:
 
   - `--start_sample`: Index of the first sample (inclusive) where the segment begins.
-  - `--fft_size`: Number of samples to use in the FFT. This defines the **length** of the time-series segment to be analyzed. If the specified range exceeds the end of the filterbank, Peasoup will **zero-pad** the remaining samples after baseline subtraction.
+  - `--fft_size`: Number of samples to use in the FFT. This defines the **length** of the filterbank file to be analyzed. If the specified range exceeds the end of the filterbank, Peasoup will **zero-pad** the remaining samples after baseline subtraction.
   - `--nsamples` *(Optional)*: Exact number of samples to read from the filterbank file. 
 
 
