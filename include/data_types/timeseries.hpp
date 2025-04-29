@@ -562,11 +562,12 @@ public:
 
   }
 
-  void write_timeseries_to_file(std::string filename_prefix, std::size_t idx, SigprocHeader hdr){
+  void write_timeseries_to_file(std::string outdir, std::string filename_prefix, std::size_t idx, SigprocHeader hdr){
     T* ptr = this->get_data_ptr() + (size_t)idx*(size_t)this->nsamps;
     double dm = dm_list[idx];
     std::ofstream outfile;
     std::stringstream file_prefix;
+    file_prefix << outdir << "/";
     file_prefix << filename_prefix  << "_DM" << std::setw(9) << std::setfill('0') << std::fixed << std::setprecision(3) << dm;
 
     std::stringstream dat_file_name;

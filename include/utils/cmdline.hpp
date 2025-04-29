@@ -36,6 +36,7 @@ struct CmdLineOptions {
   bool progress_bar;
   long  start_sample;
   long nsamples;
+  std::string dump_time_series_to;
 };
 
 struct FFACmdLineOptions {
@@ -198,7 +199,11 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
 
       TCLAP::ValueArg<unsigned int> arg_nsamples("", "nsamples",
 						 "Only take this many samples from start sample. Default: Until EOF",
-						 false, 0, "long", cmd);        
+						 false, 0, "long", cmd);     
+             
+      TCLAP::ValueArg<std::string> arg_dump_time_series_to("d", "dump_time_series_to",
+        "dump dedispersed time series to this directory",
+        false, get_utc_str(), "string",cmd);
 
       cmd.parse(argc, argv);
       args.infilename        = arg_infilename.getValue();
@@ -233,6 +238,7 @@ bool read_cmdline_options(CmdLineOptions& args, int argc, char **argv)
       args.progress_bar      = arg_progress_bar.getValue();
       args.start_sample      = arg_start_sample.getValue();
       args.nsamples           = arg_nsamples.getValue();
+      args.dump_time_series_to = arg_dump_time_series_to.getValue();
 
     }catch (TCLAP::ArgException &e) {
     std::cerr << "Error: " << e.error() << " for arg " << e.argId()

@@ -362,6 +362,7 @@ int main(int argc, char **argv)
   if (args.verbose)
     std::cout << "Using file: " << args.infilename << std::endl;
   std::string filename(args.infilename);
+  std::string filename_without_ext = filename.substr(0,filename.find_last_of("."));
 
   //Stopwatch timer;
   if (args.progress_bar)
@@ -496,11 +497,16 @@ int main(int argc, char **argv)
     if (args.progress_bar)
       dispenser.enable_progress_bar();
 
-    for (int ii=0;ii<dm_list_chunk.size();ii++){
-      trials.write_timeseries_to_file("test", ii, header);
+    // if args.dump_time_series_to is not empty, write the time series to file
 
+    if (args.dump_time_series_to != ""){
+      for (int ii=0;ii<dm_list_chunk.size();ii++){
+        trials.write_timeseries_to_file(args.dump_time_series_to, filename_without_ext, ii, header);
+      }
     }
 
+   
+    
     for (int ii=0;ii<nthreads;ii++){
       workers[ii] = (new Worker(trials,dispenser,acc_plan,args,size,ii));
       pthread_create(&threads[ii], NULL, launch_worker_thread, (void*) workers[ii]);
