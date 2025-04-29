@@ -1,5 +1,6 @@
 #include <data_types/timeseries.hpp>
 #include <data_types/fourierseries.hpp>
+#include <data_types/header.hpp>
 #include <data_types/candidates.hpp>
 #include <data_types/filterbank.hpp>
 #include <transforms/dedisperser.hpp>
@@ -374,6 +375,7 @@ int main(int argc, char **argv)
 
   timers["reading"].start();
   SigprocFilterbank filobj(filename, args.start_sample, args.nsamples);
+  SigprocHeader header = filobj.get_header();
   timers["reading"].stop();
 
   if (args.progress_bar){
@@ -493,6 +495,11 @@ int main(int argc, char **argv)
     DMDispenser dispenser(trials);
     if (args.progress_bar)
       dispenser.enable_progress_bar();
+
+    for (int ii=0;ii<dm_list_chunk.size();ii++){
+      trials.write_timeseries_to_file("test", ii, header);
+
+    }
 
     for (int ii=0;ii<nthreads;ii++){
       workers[ii] = (new Worker(trials,dispenser,acc_plan,args,size,ii));

@@ -32,6 +32,13 @@
 #include "utils/utils.hpp"
 #include <data_types/header.hpp>
 #include <string>
+#include <sstream>
+#include <iomanip>
+#include <unistd.h>
+#include <fstream>
+#include <sys/types.h>
+#include <unistd.h>
+#include <pwd.h>
 #include "kernels/kernels.h"
 #include "kernels/defaults.h"
 
@@ -507,6 +514,76 @@ public:
   void resize(std::size_t out_nsamps, std::vector<float> const&  dm_list_in){
     dm_list = dm_list_in; //Make a copy
     TimeSeriesContainer<T>::resize(out_nsamps, dm_list.size());
+  }
+
+  void write_header_to_file(std::string filename_prefix, SigprocHeader hdr){
+      std::string ra,dec;
+      sigproc_to_hhmmss(hdr.src_raj, ra);
+      sigproc_to_ddmmss(hdr.src_dej, dec);
+      std::string filename = filename_prefix + ".inf";
+      std::string login = getpwuid(getuid())->pw_name;
+
+      double bw = hdr.foff * hdr.nchans;
+
+      double lowest_freq = bw < 0 ? hdr.fch1 + bw * (hdr.nchans - 1) : hdr.fch1;
+
+ 
+
+      std::stringstream ss;
+      ss << " Data file name without suffix          =  " << filename_prefix << "\n";
+      ss << " Telescope used                         =  " << hdr.telescope_id << "\n";
+      ss << " Instrument used                        =  " << hdr.machine_id << "\n";
+      ss << " Object being observed                  =  " << hdr.source_name << "\n";
+      ss << " J2000 Right Ascension (hh:mm:ss.ssss)  =  " << ra << "\n";
+      ss << " J2000 Declination     (dd:mm:ss.ssss)  =  " << dec << "\n";
+      ss << " Data observed by                       =  pulsar_astronomer\n";
+      ss << " Epoch of observation (MJD)             =  " << std::fixed << std::setprecision(15) << hdr.tstart << "\n";
+      ss << " Barycentered?           (1=yes, 0=no)  =  " << 0 << "\n";
+      ss << " Number of bins in the time series      =  " << hdr.nsamples << "\n";
+      ss << " Width of each time series bin (sec)    =  " << std::fixed << std::setprecision(15) << hdr.tsamp << "\n";
+      ss << " Any breaks in the data? (1 yes, 0 no)  =  0\n";
+      ss << " Orbit removed?          (1=yes, 0=no)  =  " << 0 << "\n";
+      ss << " Type of observation (EM band)          =  Radio\n";
+      ss << " Dispersion measure (cm-3 pc)           =  " << hdr.refdm << "\n";
+      ss << " Central freq of low channel (Mhz)      =  " << lowest_freq << "\n";
+      ss << " Total bandwidth (Mhz)                  =  " << std::fixed << std::setprecision(6) << bw << "\n";        
+      ss << " Number of channels                     =  " << 1 << "\n";
+      ss << " Channel bandwidth (Mhz)                =  " << bw << "\n";
+      ss << " Data analyzed by                       =  " << login << "\n";
+      ss << " Any additional notes:\n";
+      ss    << "    File written by Peasoup pulsar search package\n";
+      std::ofstream outfile;
+      outfile.open(filename.c_str(),std::ifstream::out | std::ifstream::binary);
+      ErrorChecker::check_file_error(outfile, filename);
+      outfile << ss.str();
+      ErrorChecker::check_file_error(outfile, filename);
+      outfile.close();
+      std::cout << "Wrote " << filename_prefix << ".inf" << std::endl;
+
+  }
+
+  void write_timeseries_to_file(std::string filename_prefix, std::size_t idx, SigprocHeader hdr){
+    T* ptr = this->get_data_ptr() + (size_t)idx*(size_t)this->nsamps;
+    double dm = dm_list[idx];
+    std::ofstream outfile;
+    std::stringstream file_prefix;
+    file_prefix << filename_prefix  << "_DM" << std::setw(9) << std::setfill('0') << std::fixed << std::setprecision(3) << dm;
+
+    std::stringstream dat_file_name;
+    dat_file_name << file_prefix.str() << ".dat";
+    outfile.open(dat_file_name.str(),std::ifstream::out | std::ifstream::binary);
+    ErrorChecker::check_file_error(outfile, dat_file_name.str());
+    hdr.refdm = dm;
+    write_header_to_file(file_prefix.str(), hdr);
+
+    outfile.write(reinterpret_cast<char*>(ptr), (size_t)this->nsamps*sizeof(T));
+    ErrorChecker::check_file_error(outfile, dat_file_name.str());
+    outfile.close();
+    std::cout << "Wrote " << filename_prefix << ".dat" << std::endl;
+    
+
+
+    
   }
 
 };

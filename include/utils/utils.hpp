@@ -4,6 +4,8 @@
 #include <string>
 #include <utils/exceptions.hpp>
 #include <fstream>
+#include <sstream>
+#include <iomanip>
 #include <vector>
 #include <algorithm>
 #include <iostream>
@@ -229,5 +231,6 @@ public:
     return;
   }
 };
-
+void sigproc_to_ddmmss(double sigproc, std::string& ddmmss);
+void sigproc_to_hhmmss(double sigproc, std::string& hhmmss);
 
