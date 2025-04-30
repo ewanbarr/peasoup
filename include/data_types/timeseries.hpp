@@ -39,6 +39,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <cmath>
 #include "kernels/kernels.h"
 #include "kernels/defaults.h"
 
@@ -525,7 +526,7 @@ public:
 
       double bw = hdr.foff * hdr.nchans;
 
-      double lowest_freq = bw < 0 ? hdr.fch1 + bw * (hdr.nchans - 1) : hdr.fch1;
+      double lowest_freq =  hdr.foff < 0 ? hdr.fch1 + hdr.foff * (hdr.nchans -1)  : hdr.fch1;
 
  
 
@@ -546,9 +547,9 @@ public:
       ss << " Type of observation (EM band)          =  Radio\n";
       ss << " Dispersion measure (cm-3 pc)           =  " << hdr.refdm << "\n";
       ss << " Central freq of low channel (Mhz)      =  " << lowest_freq << "\n";
-      ss << " Total bandwidth (Mhz)                  =  " << std::fixed << std::setprecision(6) << bw << "\n";        
+      ss << " Total bandwidth (Mhz)                  =  " << std::fixed << std::setprecision(6) << abs(bw) << "\n";        
       ss << " Number of channels                     =  " << 1 << "\n";
-      ss << " Channel bandwidth (Mhz)                =  " << bw << "\n";
+      ss << " Channel bandwidth (Mhz)                =  " << abs(bw) << "\n";
       ss << " Data analyzed by                       =  " << login << "\n";
       ss << " Any additional notes:\n";
       ss    << "    File written by Peasoup pulsar search package\n";
