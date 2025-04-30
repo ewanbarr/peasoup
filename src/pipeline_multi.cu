@@ -30,6 +30,7 @@
 #include "cufft.h"
 #include "pthread.h"
 #include <cmath>
+#include <filesystem>
 #include <map>
 
 typedef float DedispOutputType;
@@ -362,7 +363,11 @@ int main(int argc, char **argv)
   if (args.verbose)
     std::cout << "Using file: " << args.infilename << std::endl;
   std::string filename(args.infilename);
-  std::string filename_without_ext = filename.substr(0,filename.find_last_of("."));
+  std::filesystem::path filpath = filename;
+
+  if(args.timeseries_dump_dir == "" && args.no_search){
+    std::cout << "-nosearch is only useful if you are only dumping timeseries. Otherwise it does nothing." << std::endl;
+  }
 
   //Stopwatch timer;
   if (args.progress_bar)
@@ -497,11 +502,19 @@ int main(int argc, char **argv)
     if (args.progress_bar)
       dispenser.enable_progress_bar();
 
-    // if args.dump_time_series_to is not empty, write the time series to file
+    // if args.timeseries_dump_dir is not empty, write the time series to file
 
-    if (args.dump_time_series_to != ""){
+    std::cout << "Dumping time series to " << args.timeseries_dump_dir << std::endl;
+    std::cout << "filename without ext: " << filpath.stem().string() << std::endl;
+
+    if (args.timeseries_dump_dir != ""){
+      std::filesystem::create_directories(args.timeseries_dump_dir);
       for (int ii=0;ii<dm_list_chunk.size();ii++){
-        trials.write_timeseries_to_file(args.dump_time_series_to, filename_without_ext, ii, header);
+        trials.write_timeseries_to_file(args.timeseries_dump_dir, filpath.stem().string(), ii, header);
+      }
+      if(args.no_search){
+        std::cout << "No search requested, exiting" << std::endl;
+        return 0;
       }
     }
 
