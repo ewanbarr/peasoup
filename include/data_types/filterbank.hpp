@@ -326,6 +326,10 @@ public:
     return nsamps_read;
   }
 
+  SigprocHeader get_header() {
+    return this->_header;
+  }
+
 
 
   double get_segment_pepoch() {

@@ -28,16 +28,18 @@ CFLAGS    = ${UCFLAGS} -fPIC ${OPTIMISE} ${DEBUG}
 OBJECTS   = ${OBJ_DIR}/kernels.o
 EXE_FILES = ${BIN_DIR}/peasoup
 
-all: directories ${OBJECTS} ${EXE_FILES}
+all: directories ${OBJECTS} ${EXE_FILES} 
 
 ${OBJ_DIR}/kernels.o: ${SRC_DIR}/kernels.cu
 	${NVCC} -c ${NVCCFLAGS} ${INCLUDE} $<  -o $@
 
-${BIN_DIR}/peasoup: ${SRC_DIR}/pipeline_multi.cu ${OBJECTS}
+${BIN_DIR}/peasoup: ${SRC_DIR}/pipeline_multi.cu  ${SRC_DIR}/utils.cpp ${OBJECTS}
 	${NVCC} ${NVCCFLAGS} ${INCLUDE} ${LIBS} $^ -o $@
 
 ${BIN_DIR}/ffaster: ${SRC_DIR}/ffa_pipeline.cu ${OBJECTS}
 	${NVCC} ${NVCCFLAGS_FFA} ${INCLUDE} ${FFASTER_INCLUDES} ${LIBS} $^ -o $@
+
+
 
 directories:
 	@mkdir -p ${BIN_DIR}

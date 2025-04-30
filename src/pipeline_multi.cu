@@ -1,5 +1,6 @@
 #include <data_types/timeseries.hpp>
 #include <data_types/fourierseries.hpp>
+#include <data_types/header.hpp>
 #include <data_types/candidates.hpp>
 #include <data_types/filterbank.hpp>
 #include <transforms/dedisperser.hpp>
@@ -29,6 +30,7 @@
 #include "cufft.h"
 #include "pthread.h"
 #include <cmath>
+#include <filesystem>
 #include <map>
 
 typedef float DedispOutputType;
@@ -361,6 +363,11 @@ int main(int argc, char **argv)
   if (args.verbose)
     std::cout << "Using file: " << args.infilename << std::endl;
   std::string filename(args.infilename);
+  std::filesystem::path filpath = filename;
+
+  if(args.timeseries_dump_dir == "" && args.no_search){
+    std::cout << "-nosearch is only useful if you are only dumping timeseries. Otherwise it does nothing." << std::endl;
+  }
 
   //Stopwatch timer;
   if (args.progress_bar)
@@ -374,6 +381,7 @@ int main(int argc, char **argv)
 
   timers["reading"].start();
   SigprocFilterbank filobj(filename, args.start_sample, args.nsamples);
+  SigprocHeader header = filobj.get_header();
   timers["reading"].stop();
 
   if (args.progress_bar){
@@ -494,6 +502,24 @@ int main(int argc, char **argv)
     if (args.progress_bar)
       dispenser.enable_progress_bar();
 
+    // if args.timeseries_dump_dir is not empty, write the time series to file
+
+    std::cout << "Dumping time series to " << args.timeseries_dump_dir << std::endl;
+    std::cout << "filename without ext: " << filpath.stem().string() << std::endl;
+
+    if (args.timeseries_dump_dir != ""){
+      std::filesystem::create_directories(args.timeseries_dump_dir);
+      for (int ii=0;ii<dm_list_chunk.size();ii++){
+        trials.write_timeseries_to_file(args.timeseries_dump_dir, filpath.stem().string(), ii, header);
+      }
+      if(args.no_search){
+        std::cout << "No search requested, exiting" << std::endl;
+        return 0;
+      }
+    }
+
+   
+    
     for (int ii=0;ii<nthreads;ii++){
       workers[ii] = (new Worker(trials,dispenser,acc_plan,args,size,ii));
       pthread_create(&threads[ii], NULL, launch_worker_thread, (void*) workers[ii]);
