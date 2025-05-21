@@ -22,12 +22,12 @@
 
 
 
-   🔍 **Difference between `--fft_size` and `--nsamples`**:
+   **Difference between `--fft_size` and `--nsamples`**:
   
   - `--fft_size` determines the **search transform size**, i.e., how many samples Peasoup will use *regardless of what's available*—it pads with zeros if needed.
    - `--nsamples` enforces a **strict upper bound** on how many real samples. If `--fft_size` > `--nsamples`, then the software will pad zeros after reading `--nsamples` from the filterbank file.
   
-  🔧 *Recommended usage:* Use `--start_sample` and `--fft_size` for most search scenarios. Use `--nsamples` only when you want to tightly control the **actual** number of samples read from the filterbank file.
+  *Recommended usage:* Use `--start_sample` and `--fft_size` for most search scenarios. Use `--nsamples` only when you want to tightly control the **actual** number of samples read from the filterbank file.
 
   ### Example: Illustrating the difference.
 
