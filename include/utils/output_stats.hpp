@@ -264,8 +264,12 @@ public:
     char actualpath [PATH_MAX];
     std::stringstream filepath;
     filepath << output_dir << "/" << filename;
-    realpath(filepath.str().c_str(), actualpath);
-    
+
+    if (realpath(filepath.str().c_str(), actualpath) == NULL) {
+        perror("realpath failed");
+        return;
+    }
+        
     FILE* fo = fopen(actualpath,"w");
     if (fo == NULL) {
       perror(filepath.str().c_str());

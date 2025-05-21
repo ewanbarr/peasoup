@@ -517,7 +517,7 @@ public:
     TimeSeriesContainer<T>::resize(out_nsamps, dm_list.size());
   }
 
-  void write_header_to_file(std::string filename_prefix, SigprocHeader hdr){
+  void write_header_to_file(std::string filename_prefix, SigprocHeader hdr, std::size_t nsamps_override){
       std::string ra,dec;
       sigproc_to_hhmmss(hdr.src_raj, ra);
       sigproc_to_ddmmss(hdr.src_dej, dec);
@@ -540,15 +540,15 @@ public:
       ss << " Data observed by                       =  pulsar_astronomer\n";
       ss << " Epoch of observation (MJD)             =  " << std::fixed << std::setprecision(15) << hdr.tstart << "\n";
       ss << " Barycentered?           (1=yes, 0=no)  =  " << 0 << "\n";
-      ss << " Number of bins in the time series      =  " << hdr.nsamples << "\n";
+      ss << " Number of bins in the time series      =  " << nsamps_override << "\n";
       ss << " Width of each time series bin (sec)    =  " << std::fixed << std::setprecision(15) << hdr.tsamp << "\n";
       ss << " Any breaks in the data? (1 yes, 0 no)  =  0\n";
-      ss << " Orbit removed?          (1=yes, 0=no)  =  " << 0 << "\n";
       ss << " Type of observation (EM band)          =  Radio\n";
+      ss << " Beam diameter (arcsec)                 =  3600\n";
       ss << " Dispersion measure (cm-3 pc)           =  " << hdr.refdm << "\n";
       ss << " Central freq of low channel (Mhz)      =  " << lowest_freq << "\n";
       ss << " Total bandwidth (Mhz)                  =  " << std::fixed << std::setprecision(6) << abs(bw) << "\n";        
-      ss << " Number of channels                     =  " << 1 << "\n";
+      ss << " Number of channels                     =  " << hdr.nchans << "\n";
       ss << " Channel bandwidth (Mhz)                =  " << abs(bw) << "\n";
       ss << " Data analyzed by                       =  " << login << "\n";
       ss << " Any additional notes:\n";
@@ -566,6 +566,10 @@ public:
   void write_timeseries_to_file(std::string outdir, std::string filename_prefix, std::size_t idx, SigprocHeader hdr){
     T* ptr = this->get_data_ptr() + (size_t)idx*(size_t)this->nsamps;
     double dm = dm_list[idx];
+
+    // Compute number of samples to write (even only)
+    std::size_t nsamps_to_write = (this->nsamps % 2 == 0) ? this->nsamps : this->nsamps - 1;
+
     std::ofstream outfile;
     std::stringstream file_prefix;
     file_prefix << outdir << "/";
@@ -575,15 +579,16 @@ public:
     dat_file_name << file_prefix.str() << ".dat";
     outfile.open(dat_file_name.str(),std::ifstream::out | std::ifstream::binary);
     ErrorChecker::check_file_error(outfile, dat_file_name.str());
-    hdr.refdm = dm;
-    write_header_to_file(file_prefix.str(), hdr);
-
-    outfile.write(reinterpret_cast<char*>(ptr), (size_t)this->nsamps*sizeof(T));
+    // Write only even number of samples
+    outfile.write(reinterpret_cast<char*>(ptr), nsamps_to_write * sizeof(T));
     ErrorChecker::check_file_error(outfile, dat_file_name.str());
     outfile.close();
-    std::cout << "Wrote " << filename_prefix << ".dat" << std::endl;
-    
 
+    std::cout << "Wrote " << filename_prefix << ".dat" << std::endl;
+    // Write header, passing overridden nsamples value
+    hdr.refdm = dm;
+    write_header_to_file(file_prefix.str(), hdr, nsamps_to_write);
+    
 
     
   }
