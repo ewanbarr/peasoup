@@ -18,4 +18,4 @@ obj/
 *.la
 *.a
 **/.bdm.db
-
+.vscode/

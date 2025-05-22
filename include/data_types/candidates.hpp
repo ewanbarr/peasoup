@@ -84,7 +84,7 @@ public:
   }
 
   void print(FILE* fo=stdout){
-    fprintf(fo,"%.15f\t%.15f\t%.15f\t%.2f\t%.2f\t%d\t%.1f\t%.1f\t%d\t%d\t%.4f\t%.4f\t%d\n",
+    fprintf(fo,"%.15f\t%.15f\t%.15f\t%.2f\t%.2f\t%d\t%.1f\t%.1f\t%d\t%d\t%.4f\t%.4f\t%zu\n",
 	    1.0/freq,opt_period,freq,dm,acc,
 	    nh,snr,folded_snr,is_adjacent,
 	    is_physical,ddm_count_ratio,
